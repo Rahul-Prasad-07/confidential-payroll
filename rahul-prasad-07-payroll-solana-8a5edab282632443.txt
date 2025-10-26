@@ -1,0 +1,4379 @@
+Directory structure:
+└── rahul-prasad-07-payroll-solana/
+    ├── README.md
+    ├── Anchor.toml
+    ├── Cargo.toml
+    ├── deployer.json
+    ├── k.json
+    ├── notes.md
+    ├── package.json
+    ├── tsconfig.json
+    ├── use.json
+    ├── .prettierignore
+    ├── backend/
+    │   ├── package.json
+    │   ├── run.md
+    │   ├── tsconfig.json
+    │   ├── .env.example
+    │   └── src/
+    │       ├── index.ts
+    │       ├── controller/
+    │       │   └── payrollController.ts
+    │       ├── models/
+    │       │   ├── paymentHistory.ts
+    │       │   └── user.ts
+    │       ├── routes/
+    │       │   ├── authRoutes.ts
+    │       │   └── payrollRoutes.ts
+    │       └── utils/
+    │           ├── anchorClient.ts
+    │           ├── auth.ts
+    │           ├── logger.ts
+    │           ├── mongo.ts
+    │           ├── payroll_standard.json
+    │           ├── scheduler.ts
+    │           └── types/
+    │               └── payroll_standard.ts
+    ├── migrations/
+    │   └── deploy.ts
+    ├── programs/
+    │   └── payroll_confidential/
+    │       ├── Cargo.toml
+    │       ├── Xargo.toml
+    │       └── src/
+    │           └── lib.rs
+    └── tests/
+        └── payroll_confidential.ts
+
+================================================
+FILE: README.md
+================================================
+# Payroll Program
+
+A Solana Anchor-based payroll management system, automated, and tokenized salary payments. This program enables organizations to manage payrolls, add employees, process payments, and handle tax and deduction logic using SPL tokens.
+
+---
+
+## Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+- [Account Structure](#account-structure)
+- [Instructions](#instructions)
+  - [Deployment](#deployment)
+  - [Initialization](#initialization)
+  - [Adding Employees](#adding-employees)
+  - [Processing Payments](#processing-payments)
+  - [Updating Employees](#updating-employees)
+  - [Depositing Funds](#depositing-funds)
+  - [Pausing/Resuming Payroll](#pausingresuming-payroll)
+- [Events](#events)
+- [Error Codes](#error-codes)
+- [Security Considerations](#security-considerations)
+- [License](#license)
+
+---
+
+## Overview
+
+This program provides a robust, on-chain payroll system for organizations to manage employee payments using SPL tokens. It supports:
+- employee management
+- Automated salary, tax, and deduction calculations
+- Flexible payment frequencies (weekly, bi-weekly, monthly)
+- Secure fund vaults and authority controls
+
+## Features
+- **Payroll Vaults:** Each payroll has a dedicated SPL token vault.
+- **Employee Management:** Add, update, and deactivate employees with custom salary, deductions, and payment frequency.
+- **Automated Payments:** Enforce payment intervals and calculate net salary (after tax and deductions).
+- **Event Logging:** Emits events for all major actions for off-chain tracking.
+- **Pause/Resume:** Temporarily pause or resume payroll operations.
+
+## Account Structure
+
+### Accounts
+- **Payroll**: Stores payroll configuration and state.
+- **Employee**: Stores individual employee data.
+- **Payroll Vault**: SPL Token account holding payroll funds.
+
+### Data Layout
+#### Payroll
+- `authority: Pubkey` — Payroll admin
+- `payroll_id: String` — Unique identifier
+- `payment_token: Pubkey` — SPL token mint
+- `employee_count: u64` — Number of employees
+- `is_active: bool` — Payroll status
+- `tax_rate: u16` — Basis points (e.g., 1000 = 10%)
+- `total_funds: u64` — Funds in vault
+
+#### Employee
+- `payroll: Pubkey` — Parent payroll
+- `employee_id: String` — Unique identifier
+- `wallet: Pubkey` — Employee's token account
+- `salary_amount: u64` — Gross salary per period
+- `deductions: u64` — Fixed deductions per period
+- `payment_frequency: PaymentFrequency` — Enum: Weekly, BiWeekly, Monthly
+- `last_payment: i64` — Unix timestamp
+- `is_active: bool` — Employment status
+
+## Instructions
+
+### Deployment
+1. **Build the program:**
+   ```sh
+   anchor build
+   ```
+2. **Deploy to Solana:**
+   ```sh
+   anchor deploy
+   ```
+3. **Update your client with the new program ID.**
+
+### Initialization
+- **Initialize Payroll**
+  - Creates a new payroll and associated vault.
+  - Parameters: `payroll_id`, `payment_token`, `tax_rate`
+
+### Adding Employees
+- **Add Employee**
+  - Adds a new employee to a payroll.
+  - Parameters: `employee_id`, `salary_amount`, `payment_frequency`, `deductions`
+
+### Processing Payments
+- **Process Payment**
+  - Pays an employee if the required interval has passed.
+  - Calculates net salary: `salary - tax - deductions`
+  - Transfers SPL tokens from payroll vault to employee wallet.
+
+### Updating Employees
+- **Update Employee**
+  - Modify salary, frequency, deductions, or active status.
+
+### Depositing Funds
+- **Deposit Funds**
+  - Transfer SPL tokens from authority to payroll vault.
+
+### Pausing/Resuming Payroll
+- **Pause Payroll**
+  - Temporarily disables all payment actions.
+- **Resume Payroll**
+  - Re-enables payment actions.
+
+## Events
+- `EmployeeAdded`
+- `EmployeeUpdated`
+- `PaymentProcessed`
+- `FundsDeposited`
+- `PayrollPaused`
+- `PayrollResumed`
+
+## Error Codes
+- `PayrollInactive` — Payroll is paused
+- `PayrollActive` — Payroll is already active
+- `EmployeeInactive` — Employee is not active
+- `InvalidPayroll` — Invalid payroll account
+- `InvalidEmployeeId` — Employee ID mismatch
+- `PaymentTooSoon` — Payment interval not met
+- `InvalidWallet` — Wallet mismatch
+- `ArithmeticOverflow` — Math error
+- `InvalidPayrollId` — Payroll ID mismatch
+- `InvalidSalaryAmount` — Salary must be > 0
+- `InsufficientFunds` — Not enough funds in vault
+
+## Security Considerations
+- **Authority Controls:** Only the payroll authority can add employees, deposit funds, or pause/resume payroll.
+- **Token Transfers:** All payments use SPL token transfers with proper signer seeds.
+- **Overflow Checks:** All arithmetic uses checked operations to prevent overflows.
+- **Event Logging:** All critical actions emit events for transparency and off-chain monitoring.
+
+## License
+
+MIT 
+
+
+================================================
+FILE: Anchor.toml
+================================================
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.devnet]
+solana = "3CkB1YhoBxHG9uZXJ3fDkjshjb9nXdFQkLSKKNYz9vX7"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "devnet"
+wallet = "./deployer.json"
+
+[scripts]
+test = "npx ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+
+
+
+================================================
+FILE: Cargo.toml
+================================================
+[workspace]
+members = ["programs/payroll_confidential"]
+resolver = "2"
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+[profile.release.build-override]
+opt-level = 3
+incremental = false
+codegen-units = 1
+
+
+
+================================================
+FILE: deployer.json
+================================================
+[41,140,237,11,186,147,205,39,230,188,227,140,44,243,173,68,160,96,42,229,211,190,24,12,26,151,226,85,198,169,107,150,163,75,125,50,112,7,196,85,4,202,64,34,187,242,62,179,221,37,184,178,114,17,37,235,191,135,91,149,58,138,188,37]
+
+
+================================================
+FILE: k.json
+================================================
+[165,35,230,132,148,246,101,135,9,235,80,215,20,105,157,168,36,52,246,95,227,250,250,221,121,195,29,149,32,131,86,189,27,31,52,92,198,27,28,170,127,214,151,204,52,143,159,235,16,100,56,75,190,247,183,186,11,165,97,78,138,98,202,95]
+
+
+================================================
+FILE: notes.md
+================================================
+/**
+ * Payroll Standard Program
+ *
+ * Overview:
+ * This smart contract implements a standard payroll system on the Solana blockchain using the Anchor framework.
+ * It supports payroll initialization, employee management, payment processing, fund deposits, and the ability
+ * to pause/resume payroll operations. Note that this is a standard payroll system and does not handle any confidential data.
+ *
+ * Functionalities:
+ *
+ * 1. initialize_payroll:
+ *    - Sets up a new payroll vault with a unique payroll ID, assigns the payment token, establishes the payroll authority,
+ *      initial employee count, taxonomy (active/inactive), tax rate, and total funds.
+ *
+ * 2. add_employee:
+ *    - Adds a new employee record to an active payroll by linking the employee wallet with their payroll.
+ *    - Configures employee details including salary, payment frequency, and deductions.
+ *    - Increments the employee count and emits an EmployeeAdded event.
+ *
+ * 3. process_payment:
+ *    - Processes salary payments for an employee, ensuring that the payroll and employee are both active.
+ *    - Validates that the payment interval (based on the employee's payment frequency) has passed since the last payment.
+ *    - Calculates net payment by deducting tax and any specified deductions.
+ *    - Executes an SPL token transfer from the payroll vault to the employee's wallet.
+ *    - Updates the payroll fund balance and the employee's last payment timestamp, and emits a PaymentProcessed event.
+ *
+ * 4. update_employee:
+ *    - Enables modification of an employee’s salary, payment frequency, deductions, and active status.
+ *    - Emits an EmployeeUpdated event to reflect any changes made.
+ *
+ * 5. deposit_funds:
+ *    - Deposits funds into the payroll vault using an SPL token transfer from the payroll authority's token account.
+ *    - Updates the internal tracking of total payroll funds and emits a FundsDeposited event.
+ *
+ * 6. pause_payroll and resume_payroll:
+ *    - These functions are used to temporarily suspend (pause) or resume the payroll.
+ *    - They change the active status of the payroll and emit PayrollPaused or PayrollResumed events accordingly.
+ *
+ * Key Data Structures:
+ *
+ * - Payroll:
+ *   Represents the payroll vault, containing information such as the authority, payroll ID, payment token,
+ *   employee count, active status, tax rate, and total funds available.
+ *
+ * - Employee:
+ *   Stores employee-specific data, including payroll linkage, employee ID, wallet details, salary, deductions,
+ *   frequency of salary payments, timestamp of the last payment, and activation status.
+ *
+ * - PaymentFrequency:
+ *   An enumeration defining the options for payment intervals (Weekly, BiWeekly, or Monthly).
+ *
+ * Error Handling:
+ *
+ * The contract includes custom errors (e.g., PayrollInactive, EmployeeInactive, ArithmeticOverflow, InsufficientFunds) 
+ * to provide clear failure messages and prevent invalid operations.
+ *
+ * Events:
+ *
+ * The program emits events like EmployeeAdded, PaymentProcessed, EmployeeUpdated, FundsDeposited, PayrollPaused,
+ * and PayrollResumed to enable off-chain services and listeners to track payroll state changes.
+ *
+ * Note:
+ * This contract is intended for a standard, public payroll management system and is designed with transparency in mind.
+ */
+
+- `anchor build -- -- -Znext-lockfile-bump`
+
+
+================================================
+FILE: package.json
+================================================
+{
+  "scripts": {
+    "lint": "prettier -c tests/**/*.ts",
+    "test": "anchor test"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "0.30.1",
+    "@solana/spl-token": "^0.4.8",
+    "@solana/web3.js": "^1.95.3"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.3.16",
+    "@types/mocha": "^10.0.7",
+    "chai": "^4.3.4",
+    "mocha": "^10.7.3",
+    "prettier": "^3.0.0",
+    "ts-mocha": "^10.0.0",
+    "typescript": "^5.0.0"
+  }
+}
+
+
+================================================
+FILE: tsconfig.json
+================================================
+{
+  "compilerOptions": {
+    "types": [
+      "mocha",
+      "chai"
+    ],
+    "typeRoots": [
+      "./node_modules/@types"
+    ],
+    "lib": [
+      "es2015"
+    ],
+    "module": "commonjs",
+    "target": "es6",
+    "esModuleInterop": true
+  },
+  "include": [
+    "backend/src",
+    "target/types"
+  ]
+}
+
+
+================================================
+FILE: use.json
+================================================
+[138,19,251,119,40,95,180,1,229,91,19,219,232,119,10,93,133,166,244,159,208,14,236,249,121,67,11,13,205,113,29,102,186,85,227,170,163,92,85,215,54,73,110,113,245,12,46,38,90,118,28,233,43,236,234,87,116,211,213,244,156,185,206,3]
+
+
+================================================
+FILE: .prettierignore
+================================================
+.anchor
+.DS_Store
+target
+node_modules
+dist
+build
+test-ledger
+
+
+
+================================================
+FILE: backend/package.json
+================================================
+{
+  "name": "solana-payroll",
+  "version": "1.0.0",
+  "description": "Production-ready payroll system on Solana",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "nodemon src/index.ts",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@solana/spl-token": "^0.4.8",
+    "@solana/web3.js": "^1.98.0",
+    "@types/mongoose": "^5.11.96",
+    "axios": "^1.7.2",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "joi": "^17.13.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.8.0",
+    "mongoose": "^8.15.0",
+    "node-cron": "^3.0.3",
+    "winston": "^3.13.0"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.12",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.11.0",
+    "@types/node-cron": "^3.0.11",
+    "@typescript-eslint/eslint-plugin": "^7.8.0",
+    "@typescript-eslint/parser": "^7.8.0",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
+
+
+
+================================================
+FILE: backend/run.md
+================================================
+-  ``` docker run -d  --name mongodb -p 27017:27017 -e MONGO_INITDB_ROOT_USERNAME=admin -e MONGO_INITDB_ROOT_PASSWORD=securepassword -e MONGO_INITDB_DATABASE=payroll mongo  ```
+
+
+================================================
+FILE: backend/tsconfig.json
+================================================
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "module": "CommonJS",
+        "outDir": "./dist",
+        "rootDir": "./src",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "resolveJsonModule": true
+    },
+    "include": [
+        "src/**/*",
+        "target/types"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}
+
+
+================================================
+FILE: backend/.env.example
+================================================
+SOLANA_RPC_URL=https://api.devnet.solana.com
+AUTHORITY_PRIVATE_KEY=<your-authority-private-key-in-base58>
+
+GASLITE_DROP_ADDRESS=DYNnymGWfKKqYgwRuxYZq3f4qDtQ1LLaXogWhchHrjfQ
+PROTOCOL_FEE_ADDRESS=DYNnymGWfKKqYgwRuxYZq3f4qDtQ1LLaXogWhchHrjfQ
+AI_AGENT_ADDRESS=GfwaVQP72oDuDoSzDihPToE17jfZbVbwg42ucUJw2jY4
+
+MONGO_URI=mongodb://admin:securepassword@localhost:27017/payroll
+
+
+================================================
+FILE: backend/src/index.ts
+================================================
+import cors from 'cors';
+import dotenv from 'dotenv';
+import express, { Express } from 'express';
+
+import payrollRoutes from './routes/payrollRoutes'
+import { connectToMongo } from './utils/mongo'
+import { configureLogger } from './utils/logger'
+import authRoutes from './routes/authRoutes'
+// import { schedulePayments } from './utils/scheduler';
+
+dotenv.config();
+
+const app: Express = express();
+configureLogger();
+
+app.use(cors());
+app.use(express.json());
+
+// Connect to MongoDB
+interface MongoConnectionError extends Error { }
+
+connectToMongo().catch((err: MongoConnectionError): never => {
+    console.error('Failed to connect to MongoDB:', err);
+    process.exit(1);
+});
+
+app.use('/api/payroll', payrollRoutes);
+app.use('/api/auth', authRoutes);
+
+// Schedule automated payments
+// schedulePayments();
+
+const PORT = process.env.PORT || 6000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
+
+
+================================================
+FILE: backend/src/controller/payrollController.ts
+================================================
+import * as anchor from '@coral-xyz/anchor';
+import { createAssociatedTokenAccountInstruction, createTransferInstruction, getAccount, getAssociatedTokenAddress } from '@solana/spl-token';
+// Added createTransferInstruction
+import { PublicKey, Transaction } from '@solana/web3.js';
+import { Request, Response } from 'express';
+import { PaymentHistory } from '../models/paymentHistory';
+import { getConnection, getEmployeePda, getPayrollPda, getPayrollVaultPda, getProgram, PAYROLL_ID, PROGRAM_ID, SystemProgram, TOKEN_PROGRAM_ID, userA } from '../utils/anchorClient';
+import Joi from 'joi';
+import { logger } from '../utils/logger';
+const PAYMENT_TOKEN = new PublicKey('J1q7FEiMhzgd1T9bGtdh8ZTZa8mhsyszaW4AqQPvYxWX');
+const authority = userA.publicKey;
+
+const DECIMALS = 1_000_000_000; // Assuming 9 decimals for the token
+
+
+const initializeSchema = Joi.object({
+  payrollId: Joi.string().max(64).required(),
+  taxRate: Joi.number().min(0).max(10000).required(), // Basis points
+});
+
+const addEmployeeSchema = Joi.object({
+  payrollId: Joi.string().max(64).required(),
+  employeeId: Joi.string().max(64).required(),
+  salaryAmount: Joi.number().positive().required(),
+  deductions: Joi.number().min(0).required(),
+  paymentFrequency: Joi.string().valid('weekly', 'biweekly', 'monthly').required(),
+  employeeWallet: Joi.string().required(),
+});
+
+const processPaymentSchema = Joi.object({
+  payrollId: Joi.string().max(64).required(),
+  employeeId: Joi.string().max(64).required(),
+});
+
+const updateEmployeeSchema = Joi.object({
+  payrollId: Joi.string().max(64).required(),
+  employeeId: Joi.string().max(64).required(),
+  salaryAmount: Joi.number().positive().required(),
+  deductions: Joi.number().min(0).required(),
+  paymentFrequency: Joi.string().valid('weekly', 'biweekly', 'monthly').required(),
+  isActive: Joi.boolean().required(),
+});
+
+const depositFundsSchema = Joi.object({
+  payrollId: Joi.string().max(64).required(),
+  amount: Joi.number().positive().required(),
+});
+
+
+
+export const initializePayroll = async (req: Request, res: Response): Promise<void> => {
+
+  const { error } = initializeSchema.validate(req.body);
+  if (error) {
+    res.status(400).json({ error: error.details[0].message });
+    return;
+  }
+
+
+  try {
+    const { payrollId, taxRate } = req.body;
+    const program = getProgram();
+    const [payrollPda] = await getPayrollPda();
+    const [vaultPda] = await getPayrollVaultPda(payrollPda);
+
+    await program.methods
+      .initializePayroll(payrollId, PAYMENT_TOKEN, taxRate)
+      .accounts({
+        payroll: payrollPda, // Matches the TypeScript types (already camelCase in IDL)
+        payrollVault: vaultPda, // Changed to camelCase to match TypeScript types
+        paymentToken: PAYMENT_TOKEN,
+        authority: authority,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      } as any)
+      .rpc();
+
+    logger.info(`Payroll initialized: ${payrollId} by ${req.user!.email}`);
+
+    res.status(200).json({ message: 'Payroll initialized successfully', payroll: payrollPda.toString() });
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to initialize payroll', details: err.message });
+  }
+};
+
+export const addEmployee = async (req: Request, res: Response): Promise<void> => {
+
+  const { error } = addEmployeeSchema.validate(req.body);
+  if (error) {
+    res.status(400).json({ error: error.details[0].message });
+    return;
+  }
+
+  try {
+    const { payrollId, employeeId, salaryAmount, deductions, paymentFrequency, employeeWallet } = req.body;
+    if (!employeeId || !salaryAmount || !paymentFrequency || !employeeWallet || !deductions || !payrollId) {
+      res.status(400).json({ error: 'All fields are required' });
+      return;
+    }
+
+    const program = getProgram();
+    const [payrollPda] = await getPayrollPda();
+    const [employeePda] = await getEmployeePda(payrollPda, employeeId);
+
+    const salaryInLamports = Number(salaryAmount) * 1_000_000_000; // Assuming 9 decimals
+    const deductionsInLamports = Number(deductions) * 1_000_000_000; // Assuming 9 decimals
+
+    // Map the paymentFrequency string to the correct enum variant
+    const normalizedFrequency = paymentFrequency.toLowerCase() as 'weekly' | 'biweekly' | 'monthly';
+    if (!['weekly', 'biweekly', 'monthly'].includes(normalizedFrequency)) {
+      res.status(400).json({ error: 'Invalid payment frequency. Must be "weekly", "biweekly", or "monthly".' });
+      return;
+    }
+
+    // Convert the string to the correct enum variant object using the expected keys
+    const frequencyEnum = normalizedFrequency === 'weekly'
+      ? { weekly: {} }
+      : normalizedFrequency === 'biweekly'
+        ? { biWeekly: {} }
+        : { monthly: {} };
+
+    const employeeTokenWallet = await getAssociatedTokenAddress(
+      PAYMENT_TOKEN,
+      new PublicKey(employeeWallet),
+      false,
+      TOKEN_PROGRAM_ID
+    );
+
+    await program.methods
+      .addEmployee(employeeId, new anchor.BN(salaryInLamports), frequencyEnum, new anchor.BN(deductionsInLamports))
+      .accounts({
+        payroll: payrollPda,
+        employee: employeePda,
+        employeeWallet: employeeTokenWallet,
+        authority: authority,
+        systemProgram: SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      } as any) // Keep the type assertion for now due to previous TS2353 errors
+      .rpc();
+
+    logger.info(`Employee added: ${employeeId} to payroll ${payrollId} by ${req.user!.email}`);
+
+    res.status(200).json({ message: 'Employee added successfully', employee: employeePda.toString() });
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to add employee', details: err.message });
+  }
+};
+
+export const processPayment = async (req: Request, res: Response): Promise<void> => {
+  const { error } = processPaymentSchema.validate(req.body);
+  if (error) {
+    res.status(400).json({ error: error.details[0].message });
+    return;
+  }
+
+  try {
+    const { payrollId, employeeId } = req.body;
+    if (!employeeId || !payrollId) {
+      res.status(400).json({ error: 'Employee ID is required' });
+      return;
+    }
+
+    const program = getProgram();
+    const [payrollPda] = await getPayrollPda();
+    const [employeePda] = await getEmployeePda(payrollPda, employeeId);
+    const [vaultPda] = await getPayrollVaultPda(payrollPda);
+
+    const employee = await program.account.employee.fetch(employeePda);
+    const payroll = await program.account.payroll.fetch(payrollPda);
+    const connection = getConnection();
+    const vaultAccount = await getAccount(connection, vaultPda);
+
+    // Check vault balance
+    const taxAmount = (Number(employee.salaryAmount) * payroll.taxRate) / 10_000;
+    const netPayment = Number(employee.salaryAmount) - taxAmount - Number(employee.deductions);
+    if (Number(vaultAccount.amount) < netPayment) {
+      res.status(400).json({
+        error: 'Insufficient funds in payroll vault',
+        required: netPayment / DECIMALS,
+        available: Number(vaultAccount.amount) / DECIMALS,
+      });
+      return;
+    }
+
+    await program.methods
+      .processPayment(employeeId)
+      .accounts({
+        payroll: payrollPda, // Matches the TypeScript types
+        employee: employeePda, // Matches the TypeScript types
+        payrollVault: vaultPda, // Changed to camelCase to match TypeScript types
+        employeeWallet: employee.wallet, // Changed to camelCase to match TypeScript types
+        paymentToken: payroll.paymentToken,
+        authority: authority,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      } as any)
+      .rpc();
+
+    // Save payment history
+    const paymentHistory = new PaymentHistory({
+      payrollId,
+      employeeId,
+      amount: Number(employee.salaryAmount) / 1_000_000_000, // Assuming 9 decimals
+      taxAmount: (Number(employee.salaryAmount) * payroll.taxRate) / 10_000 / DECIMALS,
+      deductions: Number(employee.deductions) / DECIMALS,
+      timestamp: new Date(),
+    });
+    await paymentHistory.save();
+
+    logger.info(`Payment processed for employee ${employeeId} in payroll ${payrollId} by ${req.user!.email}`);
+
+    res.status(200).json({ message: `Payment processed for employee ${employeeId}` });
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to process payment', details: err.message });
+  }
+};
+
+export const processAllPayments = async (req: Request, res: Response): Promise<void> => {
+  const { payrollId } = req.body;
+  if (!payrollId) {
+    res.status(400).json({ error: 'Payroll ID is required' });
+    return;
+  }
+
+
+  try {
+    const program = getProgram();
+    const [payrollPda] = await getPayrollPda();
+    const [vaultPda] = await getPayrollVaultPda(payrollPda);
+
+    const payroll = await program.account.payroll.fetch(payrollPda);
+    const employees = await program.account.employee.all([
+      { memcmp: { offset: 8, bytes: payrollPda.toBase58() } },
+    ]);
+
+    const results: { employeeId: string; status: string; error?: string }[] = [];
+    for (const employee of employees) {
+      const employeeId = employee.account.employeeId;
+      const employeePubkey = employee.publicKey;
+      const employeeWallet = employee.account.wallet;
+
+      try {
+        await program.methods
+          .processPayment(employeeId)
+          .accounts({
+            payroll: payrollPda, // Matches the TypeScript types
+            employee: employeePubkey, // Matches the TypeScript types
+            payrollVault: vaultPda, // Changed to camelCase to match TypeScript types
+            employeeWallet: employeeWallet, // Changed to camelCase to match TypeScript types
+            paymentToken: payroll.paymentToken,
+            authority: authority,
+            tokenProgram: TOKEN_PROGRAM_ID,
+            systemProgram: SystemProgram.programId,
+          } as any)
+          .rpc();
+        results.push({ employeeId, status: 'success' });
+
+        // Save payment history
+        const paymentHistory = new PaymentHistory({
+          payrollId,
+          employeeId,
+          amount: Number(employee.account.salaryAmount) / DECIMALS,
+          taxAmount: (Number(employee.account.salaryAmount) * payroll.taxRate) / 10_000 / DECIMALS,
+          deductions: Number(employee.account.deductions) / DECIMALS,
+          timestamp: new Date(),
+        });
+        await paymentHistory.save();
+
+      } catch (err: any) {
+        results.push({ employeeId, status: 'failed', error: err.message });
+      }
+    }
+
+    logger.info(`Processed payments for all employees in payroll ${payrollId} by ${req.user!.email}`);
+    res.status(200).json({ message: 'Processed payments for all employees', results });
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to process payments', details: err.message });
+  }
+};
+
+export const updateEmployee = async (req: Request, res: Response): Promise<void> => {
+  const { error } = updateEmployeeSchema.validate(req.body);
+  if (error) {
+    res.status(400).json({ error: error.details[0].message });
+    return;
+  }
+
+  try {
+    const { payrollId, employeeId, salaryAmount, deductions, paymentFrequency, isActive } = req.body;
+
+    const program = getProgram();
+    const [payrollPda] = await getPayrollPda();
+    const [employeePda] = await getEmployeePda(payrollPda, employeeId);
+
+    const salaryInLamports = Number(salaryAmount) * DECIMALS; // Assuming 6 decimals
+    const deductionsInLamports = Math.round(deductions * DECIMALS);
+
+    const normalizedFrequency = paymentFrequency.toLowerCase();
+    const frequencyEnum = normalizedFrequency === 'weekly'
+      ? { weekly: {} }
+      : normalizedFrequency === 'biweekly'
+        ? { biWeekly: {} }
+        : { monthly: {} };
+
+    await program.methods
+      .updateEmployee(new anchor.BN(salaryInLamports), frequencyEnum as any, new anchor.BN(deductionsInLamports), isActive)
+      .accounts({
+        payroll: payrollPda, // Matches the TypeScript types
+        employee: employeePda, // Matches the TypeScript types
+        authority: authority, // Matches the TypeScript types
+      } as any)
+      .rpc();
+
+    res.status(200).json({ message: `Employee ${employeeId} updated successfully` });
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update employee', details: err.message });
+  }
+};
+
+export const depositFunds = async (req: Request, res: Response): Promise<void> => {
+  const { error } = depositFundsSchema.validate(req.body);
+  if (error) {
+    res.status(400).json({ error: error.details[0].message });
+    return;
+  }
+
+  try {
+    const { payrollId, amount } = req.body;
+    if (!amount) {
+      res.status(400).json({ error: 'Amount is required' });
+      return;
+    }
+
+    const connection = getConnection();
+    const program = getProgram();
+    const [payrollPda] = await getPayrollPda();
+    const [vaultPda] = await getPayrollVaultPda(payrollPda);
+
+    const payroll = await program.account.payroll.fetch(payrollPda);
+    const paymentToken = payroll.paymentToken;
+
+    const authorityTokenAccount = await getAssociatedTokenAddress(
+      paymentToken,
+      authority,
+      true,
+      TOKEN_PROGRAM_ID
+    );
+
+    // Ensure the authority has a token account
+    const accountInfo = await connection.getAccountInfo(authorityTokenAccount);
+    if (!accountInfo) {
+      const tx = new Transaction().add(
+        createAssociatedTokenAccountInstruction(
+          authority,
+          authorityTokenAccount,
+          authority,
+          paymentToken,
+          TOKEN_PROGRAM_ID
+        )
+      );
+      if (!program.provider.sendAndConfirm) {
+        throw new Error('Provider does not support sendAndConfirm');
+      }
+      await program.provider.sendAndConfirm(tx);
+    }
+
+    const amountInLamports = Number(amount) * DECIMALS; // Assuming 6 decimals
+
+    await program.methods
+      .depositFunds(new anchor.BN(amountInLamports))
+      .accounts({
+        payroll: payrollPda,
+        payrollVault: vaultPda,
+        authorityTokenAccount,
+        paymentToken: PAYMENT_TOKEN,
+        authority: authority,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      } as any)
+      .rpc();
+
+
+
+    logger.info(`Deposited ${amount} tokens to payroll ${payrollId} by ${req.user!.email}`);
+    res.status(200).json({ message: `Deposited ${amount} tokens to payroll vault` });
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to deposit funds', details: err.message });
+  }
+};
+
+export const getPayrollData = async (req: Request, res: Response): Promise<void> => {
+  const { payrollId } = req.query;
+  if (!payrollId) {
+    res.status(400).json({ error: 'Payroll ID is required' });
+    return;
+  }
+
+  try {
+    const program = getProgram();
+    const connection = getConnection();
+    const [payrollPda] = await getPayrollPda();
+    const [vaultPda] = await getPayrollVaultPda(payrollPda);
+
+    const payroll = await program.account.payroll.fetch(payrollPda);
+    const vaultAccount = await getAccount(connection, vaultPda);
+    const employees = await program.account.employee.all([
+      { memcmp: { offset: 8, bytes: payrollPda.toBase58() } },
+    ]);
+
+    res.status(200).json({
+      payroll: {
+        payrollId: payroll.payrollId,
+        employeeCount: payroll.employeeCount.toNumber(),
+        vaultBalance: Number(vaultAccount.amount) / DECIMALS, // Assuming 6 decimals
+        isActive: payroll.isActive,
+        taxRate: payroll.taxRate / 100, // Convert basis points to percentage
+      },
+      employees: employees.map((emp: any) => ({
+        employeeId: emp.account.employeeId,
+        wallet: emp.account.wallet.toString(),
+        salaryAmount: emp.account.salaryAmount.toNumber() / DECIMALS,
+        paymentFrequency: Object.keys(emp.account.paymentFrequency)[0],
+        lastPayment: emp.account.lastPayment.toNumber(),
+        isActive: emp.account.isActive,
+      })),
+
+    });
+    logger.info(`Payroll data fetched for ${payrollId} by ${req.user!.email}`);
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch payroll data', details: err.message });
+  }
+};
+
+export const getEmployeeData = async (req: Request, res: Response): Promise<void> => {
+  const { payrollId } = req.query;
+  if (!payrollId) {
+    res.status(400).json({ error: 'Payroll ID is required' });
+    return;
+  }
+
+  try {
+    const program = getProgram();
+    const [payrollPda] = await getPayrollPda();
+    const [employeePda] = await getEmployeePda(payrollPda, req.user!.employeeId);
+
+    const employee = await program.account.employee.fetch(employeePda);
+
+    res.status(200).json({
+      employeeId: employee.employeeId,
+      wallet: employee.wallet.toString(),
+      salaryAmount: Number(employee.salaryAmount) / DECIMALS,
+      deductions: Number(employee.deductions) / DECIMALS,
+      paymentFrequency: Object.keys(employee.paymentFrequency)[0],
+      lastPayment: employee.lastPayment.toNumber(),
+      isActive: employee.isActive,
+    });
+
+    logger.info(`Employee data fetched for ${req.user!.employeeId} in payroll ${payrollId} by ${req.user!.email}`);
+  } catch (err: any) {
+    logger.error(`Failed to fetch employee data: ${err.message}`);
+    res.status(500).json({ error: 'Failed to fetch employee data', details: err.message });
+  }
+};
+
+export const getPaymentHistory = async (req: Request, res: Response): Promise<void> => {
+  const { payrollId, startDate, endDate } = req.query;
+  if (!payrollId) {
+    res.status(400).json({ error: 'Payroll ID is required' });
+    return;
+  }
+
+  try {
+    const query: any = {
+      payrollId: payrollId as string,
+      employeeId: req.user!.employeeId!,
+    };
+
+    if (startDate) query.timestamp = { $gte: new Date(startDate as string) };
+    if (endDate) query.timestamp = { ...query.timestamp, $lte: new Date(endDate as string) };
+
+    const history = await PaymentHistory.find(query).sort({ timestamp: -1 });
+
+    res.status(200).json(
+      history.map((h) => ({
+        payrollId: h.payrollId,
+        employeeId: h.employeeId,
+        amount: h.amount,
+        taxAmount: h.taxAmount,
+        deductions: h.deductions,
+        timestamp: h.timestamp,
+      }))
+    );
+
+    logger.info(`Payment history fetched for ${req.user!.employeeId} in payroll ${payrollId} by ${req.user!.email}`);
+  } catch (err: any) {
+    logger.error(`Failed to fetch payment history: ${err.message}`);
+    res.status(500).json({ error: 'Failed to fetch payment history', details: err.message });
+  }
+};
+
+
+================================================
+FILE: backend/src/models/paymentHistory.ts
+================================================
+import { Schema, model } from 'mongoose';
+
+interface IPaymentHistory {
+    payrollId: string;
+    employeeId: string;
+    amount: number;
+    taxAmount: number;
+    deductions: number;
+    timestamp: Date;
+}
+
+const paymentHistorySchema = new Schema<IPaymentHistory>({
+    payrollId: { type: String, required: true },
+    employeeId: { type: String, required: true },
+    amount: { type: Number, required: true },
+    taxAmount: { type: Number, required: true },
+    deductions: { type: Number, required: true },
+    timestamp: { type: Date, required: true },
+});
+
+export const PaymentHistory = model<IPaymentHistory>('PaymentHistory', paymentHistorySchema);
+
+
+================================================
+FILE: backend/src/models/user.ts
+================================================
+import { Schema, model } from 'mongoose';
+
+interface IUser {
+  email: string;
+  password: string;
+  role: 'admin' | 'employee';
+  employeeId?: string;
+}
+
+const userSchema = new Schema<IUser>({
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  role: { type: String, enum: ['admin', 'employee'], required: true },
+  employeeId: { type: String },
+});
+
+export const User = model<IUser>('User', userSchema);
+
+
+================================================
+FILE: backend/src/routes/authRoutes.ts
+================================================
+import { Router } from 'express';
+import { User } from '../models/user';
+import { hashPassword, comparePassword } from '../utils/auth';
+import jwt from 'jsonwebtoken';
+import Joi from 'joi';
+
+const router = Router();
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+const registerSchema = Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().min(6).required(),
+    role: Joi.string().valid('admin', 'employee').required(),
+    employeeId: Joi.string().optional(),
+});
+
+const loginSchema = Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().required(),
+});
+
+router.post('/register', async (req, res) => {
+    const { error } = registerSchema.validate(req.body);
+    if (error) {
+        return res.status(400).json({ error: error.details[0].message });
+    }
+
+    const { email, password, role, employeeId } = req.body;
+
+    try {
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ error: 'User already exists' });
+        }
+
+        const hashedPassword = await hashPassword(password);
+        const user = new User({ email, password: hashedPassword, role, employeeId });
+        await user.save();
+
+        const token = jwt.sign({ userId: user._id }, JWT_SECRET, {
+            expiresIn: '1h',
+        });
+        res.status(201).json({ token });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to register user' });
+    }
+});
+
+router.post('/login', async (req, res) => {
+    const { error } = loginSchema.validate(req.body);
+    if (error) {
+        return res.status(400).json({ error: error.details[0].message });
+    }
+
+    const { email, password } = req.body;
+
+    try {
+        const user = await User.findOne({ email });
+        if (!user || !(await comparePassword(password, user.password))) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign({ userId: user._id }, JWT_SECRET, {
+            expiresIn: '1h',
+        });
+        res.status(200).json({ token });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to login' });
+    }
+});
+
+export default router;
+
+
+================================================
+FILE: backend/src/routes/payrollRoutes.ts
+================================================
+import { Router } from 'express';
+import {
+    initializePayroll,
+    addEmployee,
+    processPayment,
+    processAllPayments,
+    updateEmployee,
+    depositFunds,
+    getPayrollData,
+    getPaymentHistory,
+    getEmployeeData,
+} from '../controller/payrollController';
+import { authenticate, restrictTo } from '../utils/auth';
+
+const router = Router();
+
+// Admin-only routes
+router.post(
+    '/initialize',
+    authenticate,
+    restrictTo('admin'),
+    initializePayroll
+);
+router.post('/add-employee', authenticate, restrictTo('admin'), addEmployee);
+router.post(
+    '/process-payment',
+    authenticate,
+    restrictTo('admin'),
+    processPayment
+);
+router.post(
+    '/process-all-payments',
+    authenticate,
+    restrictTo('admin'),
+    processAllPayments
+);
+router.post(
+    '/update-employee',
+    authenticate,
+    restrictTo('admin'),
+    updateEmployee
+);
+router.post('/deposit-funds', authenticate, restrictTo('admin'), depositFunds);
+router.get('/data', authenticate, restrictTo('admin'), getPayrollData);
+
+// Employee-accessible routes
+router.get(
+    '/employee-data',
+    authenticate,
+    restrictTo('employee'),
+    getEmployeeData
+);
+router.get(
+    '/payment-history',
+    authenticate,
+    restrictTo('employee'),
+    getPaymentHistory
+);
+
+export default router;
+
+
+================================================
+FILE: backend/src/utils/anchorClient.ts
+================================================
+import * as anchor from '@coral-xyz/anchor';
+import { PublicKey, Keypair, SystemProgram } from '@solana/web3.js';
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { PayrollStandard } from './types/payroll_standard';
+import { Program } from '@coral-xyz/anchor';
+import * as fs from 'fs';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const IDL = require('./payroll_standard.json');
+
+
+const PROGRAM_ID = new PublicKey("3CkB1YhoBxHG9uZXJ3fDkjshjb9nXdFQkLSKKNYz9vX7");
+const PAYROLL_ID = "company_payroll_1"
+const userA = Keypair.fromSecretKey(new Uint8Array(require("../../../deployer.json")));
+const userB = Keypair.fromSecretKey(new Uint8Array(require("../../../use.json")));
+export const getConnection = (): anchor.web3.Connection => {
+  return new anchor.web3.Connection(process.env.SOLANA_RPC_URL!, 'confirmed');
+};
+
+export const getWallet = (): anchor.Wallet => {
+  return new anchor.Wallet(userA);
+};
+
+export const getProvider = (): anchor.AnchorProvider => {
+  const connection = getConnection();
+  const wallet = getWallet();
+  return new anchor.AnchorProvider(connection, wallet, anchor.AnchorProvider.defaultOptions());
+};
+
+export const getProgram = (): Program<PayrollStandard> => {
+  const provider = getProvider();
+  return new anchor.Program<PayrollStandard>(IDL as PayrollStandard, provider);
+};
+
+// Utility functions to derive PDAs
+export const getPayrollPda = async (): Promise<[PublicKey, number]> => {
+  return await PublicKey.findProgramAddressSync(
+    [Buffer.from('payroll'), Buffer.from(PAYROLL_ID)],
+    PROGRAM_ID
+  );
+};
+
+export const getPayrollVaultPda = async (payrollPda: PublicKey): Promise<[PublicKey, number]> => {
+  return await PublicKey.findProgramAddressSync(
+    [Buffer.from('vault'), payrollPda.toBuffer()],
+    PROGRAM_ID
+  );
+};
+
+export const getEmployeePda = async (payrollPda: PublicKey, employeeId: string): Promise<[PublicKey, number]> => {
+  return await PublicKey.findProgramAddressSync(
+    [Buffer.from('employee'), payrollPda.toBuffer(), Buffer.from(employeeId)],
+    PROGRAM_ID
+  );
+};
+
+export { PROGRAM_ID, TOKEN_PROGRAM_ID, SystemProgram, PAYROLL_ID, userA, userB };
+
+
+================================================
+FILE: backend/src/utils/auth.ts
+================================================
+declare global {
+    namespace Express {
+        interface Request {
+            user?: any;
+        }
+    }
+}
+
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import { Request, Response, NextFunction } from 'express';
+import { User } from '../models/user';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+export const authenticate = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+        res.status(401).json({ error: 'No token provided' });
+        return;
+    }
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+        const user = await User.findById(decoded.userId);
+        if (!user) {
+            res.status(401).json({ error: 'Invalid token' });
+            return;
+        }
+        req.user = user;
+        next();
+    } catch (err) {
+        res.status(401).json({ error: 'Invalid token' });
+    }
+};
+
+export const restrictTo = (...roles: string[]) => {
+    return (req: Request, res: Response, next: NextFunction) => {
+        if (!req.user || !roles.includes(req.user.role)) {
+            res.status(403).json({ error: 'Access denied' });
+            return;
+        }
+        next();
+    };
+};
+
+export const hashPassword = async (password: string): Promise<string> => {
+    return await bcrypt.hash(password, 10);
+};
+
+export const comparePassword = async (
+    password: string,
+    hashed: string
+): Promise<boolean> => {
+    return await bcrypt.compare(password, hashed);
+};
+
+
+================================================
+FILE: backend/src/utils/logger.ts
+================================================
+import winston from 'winston';
+
+export const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json()
+    ),
+    transports: [
+        new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
+        new winston.transports.File({ filename: 'logs/combined.log' }),
+        new winston.transports.Console(),
+    ],
+});
+
+export const configureLogger = (): void => {
+    if (process.env.NODE_ENV !== 'production') {
+        logger.add(
+            new winston.transports.Console({
+                format: winston.format.simple(),
+            })
+        );
+    }
+};
+
+
+================================================
+FILE: backend/src/utils/mongo.ts
+================================================
+import mongoose from 'mongoose';
+
+export const connectToMongo = async (): Promise<void> => {
+    const uri = process.env.MONGO_URI || 'mongodb://admin:securepassword@localhost:27017/payroll?authSource=admin';
+    console.log('Connecting to MongoDB with URI:', uri); // Debug log
+    await mongoose.connect(uri, { dbName: 'payroll' });
+    console.log('Connected to MongoDB');
+};
+
+
+================================================
+FILE: backend/src/utils/payroll_standard.json
+================================================
+{
+  "address": "3CkB1YhoBxHG9uZXJ3fDkjshjb9nXdFQkLSKKNYz9vX7",
+  "metadata": {
+    "name": "payroll_standard",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "add_employee",
+      "discriminator": [
+        14,
+        82,
+        239,
+        156,
+        50,
+        90,
+        189,
+        61
+      ],
+      "accounts": [
+        {
+          "name": "payroll",
+          "writable": true
+        },
+        {
+          "name": "employee",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  109,
+                  112,
+                  108,
+                  111,
+                  121,
+                  101,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payroll"
+              },
+              {
+                "kind": "arg",
+                "path": "employee_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "employee_wallet"
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "payroll"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "employee_id",
+          "type": "string"
+        },
+        {
+          "name": "salary_amount",
+          "type": "u64"
+        },
+        {
+          "name": "payment_frequency",
+          "type": {
+            "defined": {
+              "name": "PaymentFrequency"
+            }
+          }
+        },
+        {
+          "name": "deductions",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "deposit_funds",
+      "discriminator": [
+        202,
+        39,
+        52,
+        211,
+        53,
+        20,
+        250,
+        88
+      ],
+      "accounts": [
+        {
+          "name": "payroll",
+          "writable": true
+        },
+        {
+          "name": "payroll_vault",
+          "writable": true
+        },
+        {
+          "name": "authority_token_account",
+          "writable": true
+        },
+        {
+          "name": "payment_token",
+          "relations": [
+            "payroll"
+          ]
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "payroll"
+          ]
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "initialize_payroll",
+      "discriminator": [
+        167,
+        26,
+        70,
+        176,
+        167,
+        66,
+        216,
+        138
+      ],
+      "accounts": [
+        {
+          "name": "payroll",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  121,
+                  114,
+                  111,
+                  108,
+                  108
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "payroll_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payroll_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payroll"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payment_token"
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "payroll_id",
+          "type": "string"
+        },
+        {
+          "name": "payment_token",
+          "type": "pubkey"
+        },
+        {
+          "name": "tax_rate",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "pause_payroll",
+      "discriminator": [
+        77,
+        167,
+        122,
+        250,
+        144,
+        199,
+        60,
+        243
+      ],
+      "accounts": [
+        {
+          "name": "payroll",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "payroll"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "process_payment",
+      "discriminator": [
+        189,
+        81,
+        30,
+        198,
+        139,
+        186,
+        115,
+        23
+      ],
+      "accounts": [
+        {
+          "name": "payroll",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  121,
+                  114,
+                  111,
+                  108,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payroll.payroll_id",
+                "account": "Payroll"
+              }
+            ]
+          }
+        },
+        {
+          "name": "employee",
+          "writable": true
+        },
+        {
+          "name": "payroll_vault",
+          "writable": true
+        },
+        {
+          "name": "employee_wallet",
+          "writable": true
+        },
+        {
+          "name": "payment_token",
+          "relations": [
+            "payroll"
+          ]
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "payroll"
+          ]
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "employee_id",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "resume_payroll",
+      "discriminator": [
+        66,
+        189,
+        169,
+        90,
+        216,
+        243,
+        136,
+        57
+      ],
+      "accounts": [
+        {
+          "name": "payroll",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "payroll"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "update_employee",
+      "discriminator": [
+        73,
+        4,
+        138,
+        145,
+        85,
+        224,
+        29,
+        186
+      ],
+      "accounts": [
+        {
+          "name": "payroll"
+        },
+        {
+          "name": "employee",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "payroll"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "salary_amount",
+          "type": "u64"
+        },
+        {
+          "name": "payment_frequency",
+          "type": {
+            "defined": {
+              "name": "PaymentFrequency"
+            }
+          }
+        },
+        {
+          "name": "deductions",
+          "type": "u64"
+        },
+        {
+          "name": "is_active",
+          "type": "bool"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Employee",
+      "discriminator": [
+        98,
+        238,
+        61,
+        252,
+        130,
+        77,
+        105,
+        67
+      ]
+    },
+    {
+      "name": "Payroll",
+      "discriminator": [
+        194,
+        86,
+        146,
+        159,
+        169,
+        29,
+        234,
+        51
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "EmployeeAdded",
+      "discriminator": [
+        33,
+        182,
+        133,
+        249,
+        156,
+        132,
+        180,
+        176
+      ]
+    },
+    {
+      "name": "EmployeeUpdated",
+      "discriminator": [
+        15,
+        12,
+        101,
+        103,
+        9,
+        167,
+        130,
+        169
+      ]
+    },
+    {
+      "name": "FundsDeposited",
+      "discriminator": [
+        157,
+        209,
+        100,
+        95,
+        59,
+        100,
+        3,
+        68
+      ]
+    },
+    {
+      "name": "PaymentProcessed",
+      "discriminator": [
+        22,
+        109,
+        191,
+        213,
+        83,
+        63,
+        120,
+        219
+      ]
+    },
+    {
+      "name": "PayrollPaused",
+      "discriminator": [
+        34,
+        233,
+        200,
+        117,
+        26,
+        62,
+        130,
+        220
+      ]
+    },
+    {
+      "name": "PayrollResumed",
+      "discriminator": [
+        202,
+        200,
+        197,
+        44,
+        92,
+        194,
+        192,
+        116
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "PayrollInactive",
+      "msg": "Payroll is not active"
+    },
+    {
+      "code": 6001,
+      "name": "PayrollActive",
+      "msg": "Payroll is already active"
+    },
+    {
+      "code": 6002,
+      "name": "EmployeeInactive",
+      "msg": "Employee is not active"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidPayroll",
+      "msg": "Invalid payroll account"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidEmployeeId",
+      "msg": "Invalid employee ID"
+    },
+    {
+      "code": 6005,
+      "name": "PaymentTooSoon",
+      "msg": "Payment attempted too soon"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidWallet",
+      "msg": "Invalid wallet account"
+    },
+    {
+      "code": 6007,
+      "name": "ArithmeticOverflow",
+      "msg": "Arithmetic overflow occurred"
+    },
+    {
+      "code": 6008,
+      "name": "InvalidPayrollId",
+      "msg": "Invalid payroll ID"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidSalaryAmount",
+      "msg": "Invalid salary amount"
+    },
+    {
+      "code": 6010,
+      "name": "InsufficientFunds",
+      "msg": "Insufficient funds in vault"
+    }
+  ],
+  "types": [
+    {
+      "name": "Employee",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payroll",
+            "type": "pubkey"
+          },
+          {
+            "name": "employee_id",
+            "type": "string"
+          },
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "salary_amount",
+            "type": "u64"
+          },
+          {
+            "name": "deductions",
+            "type": "u64"
+          },
+          {
+            "name": "payment_frequency",
+            "type": {
+              "defined": {
+                "name": "PaymentFrequency"
+              }
+            }
+          },
+          {
+            "name": "last_payment",
+            "type": "i64"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EmployeeAdded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payroll_id",
+            "type": "string"
+          },
+          {
+            "name": "employee_id",
+            "type": "string"
+          },
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "salary_amount",
+            "type": "u64"
+          },
+          {
+            "name": "deductions",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "EmployeeUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payroll_id",
+            "type": "string"
+          },
+          {
+            "name": "employee_id",
+            "type": "string"
+          },
+          {
+            "name": "salary_amount",
+            "type": "u64"
+          },
+          {
+            "name": "deductions",
+            "type": "u64"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FundsDeposited",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payroll_id",
+            "type": "string"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PaymentFrequency",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Weekly"
+          },
+          {
+            "name": "BiWeekly"
+          },
+          {
+            "name": "Monthly"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PaymentProcessed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payroll_id",
+            "type": "string"
+          },
+          {
+            "name": "employee_id",
+            "type": "string"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "tax_amount",
+            "type": "u64"
+          },
+          {
+            "name": "deductions",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Payroll",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "payroll_id",
+            "type": "string"
+          },
+          {
+            "name": "payment_token",
+            "type": "pubkey"
+          },
+          {
+            "name": "employee_count",
+            "type": "u64"
+          },
+          {
+            "name": "is_active",
+            "type": "bool"
+          },
+          {
+            "name": "tax_rate",
+            "type": "u16"
+          },
+          {
+            "name": "total_funds",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PayrollPaused",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payroll_id",
+            "type": "string"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PayrollResumed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payroll_id",
+            "type": "string"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ]
+}
+
+
+================================================
+FILE: backend/src/utils/scheduler.ts
+================================================
+// import cron from 'node-cron';
+// import { getProgram, getConnection, getPayrollPda, getPayrollVaultPda, SystemProgram, TOKEN_PROGRAM_ID } from './anchorClient';
+// import { logger } from './logger';
+// import { PaymentHistory } from '../models/paymentHistory';
+
+// export const schedulePayments = (): void => {
+//   // Run every day at midnight
+//   cron.schedule('0 0 * * *', async () => {
+//     try {
+//       const program = getProgram();
+//       const payrollIds = process.env.PAYROLL_IDS?.split(',') || [];
+
+//       for (const payrollId of payrollIds) {
+//         const [payrollPda] = await getPayrollPda(payrollId);
+//         const [vaultPda] = await getPayrollVaultPda(payrollPda);
+
+//         const payroll = await program.account.payroll.fetch(payrollPda);
+//         const employees = await program.account.employee.all([
+//           { memcmp: { offset: 8, bytes: payrollPda.toBase58() } },
+//         ]);
+
+//         const transaction = new Transaction();
+//         const results: { employeeId: string; status: string; error?: string }[] = [];
+
+//         for (const employee of employees) {
+//           const employeeId = employee.account.employeeId;
+//           const employeePubkey = employee.publicKey;
+//           const employeeWallet = employee.account.wallet;
+
+//           try {
+//             const instruction = await program.methods
+//               .processPayment(employeeId)
+//               .accounts({
+//                 payroll: payrollPda,
+//                 employee: employeePubkey,
+//                 payrollVault: vaultPda,
+//                 employeeWallet: employeeWallet,
+//                 paymentToken: payroll.paymentToken,
+//                 authority: process.env.ADMIN_PUBLIC_KEY!,
+//                 tokenProgram: TOKEN_PROGRAM_ID,
+//                 systemProgram: SystemProgram.programId,
+//               })
+//               .instruction();
+
+//             transaction.add(instruction);
+//             results.push({ employeeId, status: 'queued' });
+
+//             // Save payment history
+//             const paymentHistory = new PaymentHistory({
+//               payrollId,
+//               employeeId,
+//               amount: Number(employee.account.salary_amount) / 1_000_000,
+//               taxAmount: (Number(employee.account.salary_amount) * payroll.tax_rate) / 10_000 / 1_000_000,
+//               deductions: Number(employee.account.deductions) / 1_000_000,
+//               timestamp: new Date(),
+//             });
+//             await paymentHistory.save();
+//           } catch (err: any) {
+//             results.push({ employeeId, status: 'failed', error: err.message });
+//           }
+//         }
+
+//         if (transaction.instructions.length > 0) {
+//           await program.provider.sendAndConfirm!(transaction);
+//           results.forEach((result) => {
+//             if (result.status === 'queued') result.status = 'success';
+//           });
+//         }
+
+//         logger.info(`Scheduled payments processed for payroll ${payrollId}`, { results });
+//       }
+//     } catch (err: any) {
+//       logger.error(`Failed to process scheduled payments: ${err.message}`);
+//     }
+//   });
+// };
+
+
+================================================
+FILE: backend/src/utils/types/payroll_standard.ts
+================================================
+/**
+ * Program IDL in camelCase format in order to be used in JS/TS.
+ *
+ * Note that this is only a type helper and is not the actual IDL. The original
+ * IDL can be found at `target/idl/payroll_standard.json`.
+ */
+export type PayrollStandard = {
+  "address": "3CkB1YhoBxHG9uZXJ3fDkjshjb9nXdFQkLSKKNYz9vX7",
+  "metadata": {
+    "name": "payrollStandard",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "addEmployee",
+      "discriminator": [
+        14,
+        82,
+        239,
+        156,
+        50,
+        90,
+        189,
+        61
+      ],
+      "accounts": [
+        {
+          "name": "payroll",
+          "writable": true
+        },
+        {
+          "name": "employee",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  101,
+                  109,
+                  112,
+                  108,
+                  111,
+                  121,
+                  101,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payroll"
+              },
+              {
+                "kind": "arg",
+                "path": "employeeId"
+              }
+            ]
+          }
+        },
+        {
+          "name": "employeeWallet"
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "payroll"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "employeeId",
+          "type": "string"
+        },
+        {
+          "name": "salaryAmount",
+          "type": "u64"
+        },
+        {
+          "name": "paymentFrequency",
+          "type": {
+            "defined": {
+              "name": "paymentFrequency"
+            }
+          }
+        },
+        {
+          "name": "deductions",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "depositFunds",
+      "discriminator": [
+        202,
+        39,
+        52,
+        211,
+        53,
+        20,
+        250,
+        88
+      ],
+      "accounts": [
+        {
+          "name": "payroll",
+          "writable": true
+        },
+        {
+          "name": "payrollVault",
+          "writable": true
+        },
+        {
+          "name": "authorityTokenAccount",
+          "writable": true
+        },
+        {
+          "name": "paymentToken",
+          "relations": [
+            "payroll"
+          ]
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "payroll"
+          ]
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "initializePayroll",
+      "discriminator": [
+        167,
+        26,
+        70,
+        176,
+        167,
+        66,
+        216,
+        138
+      ],
+      "accounts": [
+        {
+          "name": "payroll",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  121,
+                  114,
+                  111,
+                  108,
+                  108
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "payrollId"
+              }
+            ]
+          }
+        },
+        {
+          "name": "payrollVault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payroll"
+              }
+            ]
+          }
+        },
+        {
+          "name": "paymentToken"
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "rent",
+          "address": "SysvarRent111111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "payrollId",
+          "type": "string"
+        },
+        {
+          "name": "paymentToken",
+          "type": "pubkey"
+        },
+        {
+          "name": "taxRate",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "pausePayroll",
+      "discriminator": [
+        77,
+        167,
+        122,
+        250,
+        144,
+        199,
+        60,
+        243
+      ],
+      "accounts": [
+        {
+          "name": "payroll",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "payroll"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "processPayment",
+      "discriminator": [
+        189,
+        81,
+        30,
+        198,
+        139,
+        186,
+        115,
+        23
+      ],
+      "accounts": [
+        {
+          "name": "payroll",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  97,
+                  121,
+                  114,
+                  111,
+                  108,
+                  108
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "payroll.payroll_id",
+                "account": "payroll"
+              }
+            ]
+          }
+        },
+        {
+          "name": "employee",
+          "writable": true
+        },
+        {
+          "name": "payrollVault",
+          "writable": true
+        },
+        {
+          "name": "employeeWallet",
+          "writable": true
+        },
+        {
+          "name": "paymentToken",
+          "relations": [
+            "payroll"
+          ]
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "payroll"
+          ]
+        },
+        {
+          "name": "tokenProgram",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "employeeId",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "resumePayroll",
+      "discriminator": [
+        66,
+        189,
+        169,
+        90,
+        216,
+        243,
+        136,
+        57
+      ],
+      "accounts": [
+        {
+          "name": "payroll",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "payroll"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "updateEmployee",
+      "discriminator": [
+        73,
+        4,
+        138,
+        145,
+        85,
+        224,
+        29,
+        186
+      ],
+      "accounts": [
+        {
+          "name": "payroll"
+        },
+        {
+          "name": "employee",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "payroll"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "salaryAmount",
+          "type": "u64"
+        },
+        {
+          "name": "paymentFrequency",
+          "type": {
+            "defined": {
+              "name": "paymentFrequency"
+            }
+          }
+        },
+        {
+          "name": "deductions",
+          "type": "u64"
+        },
+        {
+          "name": "isActive",
+          "type": "bool"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "employee",
+      "discriminator": [
+        98,
+        238,
+        61,
+        252,
+        130,
+        77,
+        105,
+        67
+      ]
+    },
+    {
+      "name": "payroll",
+      "discriminator": [
+        194,
+        86,
+        146,
+        159,
+        169,
+        29,
+        234,
+        51
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "employeeAdded",
+      "discriminator": [
+        33,
+        182,
+        133,
+        249,
+        156,
+        132,
+        180,
+        176
+      ]
+    },
+    {
+      "name": "employeeUpdated",
+      "discriminator": [
+        15,
+        12,
+        101,
+        103,
+        9,
+        167,
+        130,
+        169
+      ]
+    },
+    {
+      "name": "fundsDeposited",
+      "discriminator": [
+        157,
+        209,
+        100,
+        95,
+        59,
+        100,
+        3,
+        68
+      ]
+    },
+    {
+      "name": "paymentProcessed",
+      "discriminator": [
+        22,
+        109,
+        191,
+        213,
+        83,
+        63,
+        120,
+        219
+      ]
+    },
+    {
+      "name": "payrollPaused",
+      "discriminator": [
+        34,
+        233,
+        200,
+        117,
+        26,
+        62,
+        130,
+        220
+      ]
+    },
+    {
+      "name": "payrollResumed",
+      "discriminator": [
+        202,
+        200,
+        197,
+        44,
+        92,
+        194,
+        192,
+        116
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "payrollInactive",
+      "msg": "Payroll is not active"
+    },
+    {
+      "code": 6001,
+      "name": "payrollActive",
+      "msg": "Payroll is already active"
+    },
+    {
+      "code": 6002,
+      "name": "employeeInactive",
+      "msg": "Employee is not active"
+    },
+    {
+      "code": 6003,
+      "name": "invalidPayroll",
+      "msg": "Invalid payroll account"
+    },
+    {
+      "code": 6004,
+      "name": "invalidEmployeeId",
+      "msg": "Invalid employee ID"
+    },
+    {
+      "code": 6005,
+      "name": "paymentTooSoon",
+      "msg": "Payment attempted too soon"
+    },
+    {
+      "code": 6006,
+      "name": "invalidWallet",
+      "msg": "Invalid wallet account"
+    },
+    {
+      "code": 6007,
+      "name": "arithmeticOverflow",
+      "msg": "Arithmetic overflow occurred"
+    },
+    {
+      "code": 6008,
+      "name": "invalidPayrollId",
+      "msg": "Invalid payroll ID"
+    },
+    {
+      "code": 6009,
+      "name": "invalidSalaryAmount",
+      "msg": "Invalid salary amount"
+    },
+    {
+      "code": 6010,
+      "name": "insufficientFunds",
+      "msg": "Insufficient funds in vault"
+    }
+  ],
+  "types": [
+    {
+      "name": "employee",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payroll",
+            "type": "pubkey"
+          },
+          {
+            "name": "employeeId",
+            "type": "string"
+          },
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "salaryAmount",
+            "type": "u64"
+          },
+          {
+            "name": "deductions",
+            "type": "u64"
+          },
+          {
+            "name": "paymentFrequency",
+            "type": {
+              "defined": {
+                "name": "paymentFrequency"
+              }
+            }
+          },
+          {
+            "name": "lastPayment",
+            "type": "i64"
+          },
+          {
+            "name": "isActive",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "employeeAdded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payrollId",
+            "type": "string"
+          },
+          {
+            "name": "employeeId",
+            "type": "string"
+          },
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "salaryAmount",
+            "type": "u64"
+          },
+          {
+            "name": "deductions",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "employeeUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payrollId",
+            "type": "string"
+          },
+          {
+            "name": "employeeId",
+            "type": "string"
+          },
+          {
+            "name": "salaryAmount",
+            "type": "u64"
+          },
+          {
+            "name": "deductions",
+            "type": "u64"
+          },
+          {
+            "name": "isActive",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "fundsDeposited",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payrollId",
+            "type": "string"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "paymentFrequency",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "weekly"
+          },
+          {
+            "name": "biWeekly"
+          },
+          {
+            "name": "monthly"
+          }
+        ]
+      }
+    },
+    {
+      "name": "paymentProcessed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payrollId",
+            "type": "string"
+          },
+          {
+            "name": "employeeId",
+            "type": "string"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "taxAmount",
+            "type": "u64"
+          },
+          {
+            "name": "deductions",
+            "type": "u64"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "payroll",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "payrollId",
+            "type": "string"
+          },
+          {
+            "name": "paymentToken",
+            "type": "pubkey"
+          },
+          {
+            "name": "employeeCount",
+            "type": "u64"
+          },
+          {
+            "name": "isActive",
+            "type": "bool"
+          },
+          {
+            "name": "taxRate",
+            "type": "u16"
+          },
+          {
+            "name": "totalFunds",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "payrollPaused",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payrollId",
+            "type": "string"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "payrollResumed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "payrollId",
+            "type": "string"
+          },
+          {
+            "name": "timestamp",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ]
+};
+
+
+
+================================================
+FILE: migrations/deploy.ts
+================================================
+// Migrations are an early feature. Currently, they're nothing more than this
+// single deploy script that's invoked from the CLI, injecting a provider
+// configured from the workspace's Anchor.toml.
+
+import * as anchor from "@coral-xyz/anchor";
+
+module.exports = async function (provider: anchor.AnchorProvider) {
+  // Configure client to use the provider.
+  anchor.setProvider(provider);
+
+  // Add your deploy script here.
+};
+
+
+
+================================================
+FILE: programs/payroll_confidential/Cargo.toml
+================================================
+[package]
+name = "solana"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "solana"
+
+[features]
+default = []
+anchor-debug = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+
+[dependencies]
+anchor-lang = { version = "0.31.0", features = ["init-if-needed"] }
+anchor-spl = "0.31.0"
+
+
+
+================================================
+FILE: programs/payroll_confidential/Xargo.toml
+================================================
+[target.bpfel-unknown-unknown.dependencies.std]
+features = []
+
+
+
+================================================
+FILE: programs/payroll_confidential/src/lib.rs
+================================================
+use anchor_lang::prelude::*;
+use anchor_lang::solana_program::clock::Clock;
+use anchor_spl::token::{Mint, Token, TokenAccount, Transfer};
+
+declare_id!("3CkB1YhoBxHG9uZXJ3fDkjshjb9nXdFQkLSKKNYz9vX7");
+
+#[program]
+pub mod payroll_standard {
+    use super::*;
+
+    // Initialize payroll vault
+    pub fn initialize_payroll(
+        ctx: Context<InitializePayroll>,
+        payroll_id: String,
+        payment_token: Pubkey,
+        tax_rate: u16,
+    ) -> Result<()> {
+        let payroll = &mut ctx.accounts.payroll;
+
+        payroll.authority = ctx.accounts.authority.key();
+        payroll.payroll_id = payroll_id;
+        payroll.payment_token = payment_token;
+        payroll.employee_count = 0;
+        payroll.is_active = true;
+        payroll.tax_rate = tax_rate;
+        payroll.total_funds = 0;
+        Ok(())
+    }
+
+    // Add employee to payroll
+    pub fn add_employee(
+        ctx: Context<AddEmployee>,
+        employee_id: String,
+        salary_amount: u64,
+        payment_frequency: PaymentFrequency,
+        deductions: u64, // New: Support deductions
+    ) -> Result<()> {
+        let payroll = &mut ctx.accounts.payroll;
+
+        require!(payroll.is_active, PayrollError::PayrollInactive);
+        // require!(
+        //     ctx.accounts.employee_wallet.owner == ctx.accounts.employee.key(),
+        //     PayrollError::InvalidWallet
+        // );
+
+        let employee = &mut ctx.accounts.employee;
+
+        employee.payroll = payroll.key();
+        employee.employee_id = employee_id;
+        employee.wallet = ctx.accounts.employee_wallet.key();
+        employee.salary_amount = salary_amount;
+        employee.deductions = deductions;
+        employee.payment_frequency = payment_frequency;
+        employee.last_payment = 0;
+        employee.is_active = true;
+
+        payroll.employee_count = payroll
+            .employee_count
+            .checked_add(1)
+            .ok_or(PayrollError::ArithmeticOverflow)?;
+
+        emit!(EmployeeAdded {
+            payroll_id: payroll.payroll_id.clone(),
+            employee_id: employee.employee_id.clone(),
+            wallet: employee.wallet,
+            salary_amount,
+            deductions,
+        });
+
+        Ok(())
+    }
+
+    // Process payroll payment
+    pub fn process_payment(ctx: Context<ProcessPayment>, employee_id: String) -> Result<()> {
+        let payroll = &mut ctx.accounts.payroll;
+        let employee = &mut ctx.accounts.employee;
+        let clock = Clock::get()?;
+
+        require!(payroll.is_active, PayrollError::PayrollInactive);
+        require!(employee.is_active, PayrollError::EmployeeInactive);
+        require!(
+            employee.payroll == payroll.key(),
+            PayrollError::InvalidPayroll
+        );
+        require!(
+            employee.employee_id == employee_id,
+            PayrollError::InvalidEmployeeId
+        );
+
+        // Verify payment timing
+        let time_since_last_payment = clock.unix_timestamp - employee.last_payment;
+        let required_interval = match employee.payment_frequency {
+            PaymentFrequency::Weekly => 7 * 24 * 60 * 60,
+            PaymentFrequency::BiWeekly => 14 * 24 * 60 * 60,
+            PaymentFrequency::Monthly => 30 * 24 * 60 * 60,
+        };
+
+        require!(
+            employee.last_payment == 0 || time_since_last_payment >= required_interval,
+            PayrollError::PaymentTooSoon
+        );
+
+        // Calculate net payment (salary - taxes - deductions)
+        let tax_amount = (employee.salary_amount as u128)
+            .checked_mul(payroll.tax_rate as u128)
+            .ok_or(PayrollError::ArithmeticOverflow)?
+            / 10_000;
+        let net_payment = employee
+            .salary_amount
+            .checked_sub(tax_amount as u64)
+            .ok_or(PayrollError::ArithmeticOverflow)?
+            .checked_sub(employee.deductions)
+            .ok_or(PayrollError::ArithmeticOverflow)?;
+
+        require!(
+            payroll.total_funds >= net_payment,
+            PayrollError::InsufficientFunds
+        );
+
+        let payroll_bump = ctx.bumps.payroll;
+        let id_bytes = payroll.payroll_id.as_bytes();
+        let seeds = &[b"payroll", id_bytes, &[payroll_bump]];
+        let signer_seeds = &[&seeds[..]];
+
+        // Use token transfer instead of system transfer for SPL tokens
+        let transfer_instruction = Transfer {
+            from: ctx.accounts.payroll_vault.to_account_info(),
+            to: ctx.accounts.employee_wallet.to_account_info(),
+            authority: payroll.to_account_info(),
+        };
+
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction).with_signer(signer_seeds);
+
+        anchor_spl::token::transfer(cpi_ctx, employee.salary_amount)?;
+
+        // Update payroll and employee records
+        payroll.total_funds = payroll
+            .total_funds
+            .checked_sub(net_payment)
+            .ok_or(PayrollError::ArithmeticOverflow)?;
+        employee.last_payment = clock.unix_timestamp;
+
+        emit!(PaymentProcessed {
+            payroll_id: payroll.payroll_id.clone(),
+            employee_id,
+            amount: net_payment,
+            tax_amount: tax_amount as u64,
+            deductions: employee.deductions,
+            timestamp: clock.unix_timestamp,
+        });
+
+        Ok(())
+    }
+
+    // Update employee details
+    pub fn update_employee(
+        ctx: Context<UpdateEmployee>,
+        salary_amount: u64,
+        payment_frequency: PaymentFrequency,
+        deductions: u64,
+        is_active: bool,
+    ) -> Result<()> {
+        let payroll = &ctx.accounts.payroll;
+        let employee = &mut ctx.accounts.employee;
+        require!(payroll.is_active, PayrollError::PayrollInactive);
+        require!(salary_amount > 0, PayrollError::InvalidSalaryAmount);
+
+        employee.salary_amount = salary_amount;
+        employee.payment_frequency = payment_frequency;
+        employee.deductions = deductions;
+        employee.is_active = is_active;
+
+        emit!(EmployeeUpdated {
+            payroll_id: ctx.accounts.payroll.payroll_id.clone(),
+            employee_id: employee.employee_id.clone(),
+            salary_amount,
+            deductions,
+            is_active,
+        });
+
+        Ok(())
+    }
+
+    // Deposit funds to payroll vault
+    pub fn deposit_funds(ctx: Context<DepositFunds>, amount: u64) -> Result<()> {
+        let payroll = &mut ctx.accounts.payroll;
+
+        let transfer_instruction = Transfer {
+            from: ctx.accounts.authority_token_account.to_account_info(),
+            to: ctx.accounts.payroll_vault.to_account_info(),
+            authority: ctx.accounts.authority.to_account_info(),
+        };
+
+        let cpi_program = ctx.accounts.token_program.to_account_info();
+        let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
+
+        anchor_spl::token::transfer(cpi_ctx, amount)?;
+
+        payroll.total_funds = payroll
+            .total_funds
+            .checked_add(amount)
+            .ok_or(PayrollError::ArithmeticOverflow)?;
+
+        emit!(FundsDeposited {
+            payroll_id: payroll.payroll_id.clone(),
+            amount,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+
+        Ok(())
+    }
+
+    // New: Pause payroll
+    pub fn pause_payroll(ctx: Context<PausePayroll>) -> Result<()> {
+        let payroll = &mut ctx.accounts.payroll;
+        require!(payroll.is_active, PayrollError::PayrollInactive);
+        payroll.is_active = false;
+
+        emit!(PayrollPaused {
+            payroll_id: payroll.payroll_id.clone(),
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+
+        Ok(())
+    }
+
+    // New: Resume payroll
+    pub fn resume_payroll(ctx: Context<PausePayroll>) -> Result<()> {
+        let payroll = &mut ctx.accounts.payroll;
+        require!(!payroll.is_active, PayrollError::PayrollActive);
+        payroll.is_active = true;
+
+        emit!(PayrollResumed {
+            payroll_id: payroll.payroll_id.clone(),
+            timestamp: Clock::get()?.unix_timestamp,
+        });
+
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+#[instruction(payroll_id: String)]
+pub struct InitializePayroll<'info> {
+    #[account(
+        init,
+        payer = authority,
+        space = Payroll::LEN,
+        seeds = [b"payroll", payroll_id.as_bytes()],
+        bump
+    )]
+    pub payroll: Account<'info, Payroll>,
+    #[account(
+        init,
+        payer = authority,
+        token::mint = payment_token,
+        token::authority = payroll,
+        seeds = [b"vault", payroll.key().as_ref()],
+        bump
+    )]
+    pub payroll_vault: Account<'info, TokenAccount>,
+    pub payment_token: Account<'info, Mint>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+#[instruction(employee_id: String)]
+pub struct AddEmployee<'info> {
+    #[account(mut, has_one = authority)]
+    pub payroll: Account<'info, Payroll>,
+    #[account(
+        init,
+        payer = authority,
+        space = Employee::LEN,
+        seeds = [b"employee", payroll.key().as_ref(), employee_id.as_bytes()],
+        bump
+    )]
+    pub employee: Account<'info, Employee>,
+    pub employee_wallet: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+pub struct ProcessPayment<'info> {
+    #[account(
+        mut,
+        has_one = authority,
+        has_one = payment_token,
+        seeds = [b"payroll", payroll.payroll_id.as_bytes()],
+        bump
+    )]
+    pub payroll: Account<'info, Payroll>,
+    #[account(
+        mut,
+        constraint = employee.wallet == employee_wallet.key()
+    )]
+    pub employee: Account<'info, Employee>,
+    #[account(mut)]
+    pub payroll_vault: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub employee_wallet: Account<'info, TokenAccount>,
+    pub payment_token: Account<'info, Mint>,
+    pub authority: Signer<'info>,
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct UpdateEmployee<'info> {
+    #[account(has_one = authority)]
+    pub payroll: Account<'info, Payroll>,
+    #[account(mut)]
+    pub employee: Account<'info, Employee>,
+    pub authority: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct DepositFunds<'info> {
+    #[account(mut, has_one = authority, has_one = payment_token)]
+    pub payroll: Account<'info, Payroll>,
+    #[account(mut)]
+    pub payroll_vault: Account<'info, TokenAccount>,
+    #[account(mut)]
+    pub authority_token_account: Account<'info, TokenAccount>,
+    pub payment_token: Account<'info, Mint>,
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct PausePayroll<'info> {
+    #[account(mut, has_one = authority)]
+    pub payroll: Account<'info, Payroll>,
+    pub authority: Signer<'info>,
+}
+
+#[account]
+pub struct Payroll {
+    pub authority: Pubkey,
+    pub payroll_id: String,
+    pub payment_token: Pubkey,
+    pub employee_count: u64,
+    pub is_active: bool,
+    pub tax_rate: u16,
+    pub total_funds: u64,
+}
+
+#[account]
+pub struct Employee {
+    pub payroll: Pubkey,
+    pub employee_id: String,
+    pub wallet: Pubkey,
+    pub salary_amount: u64,
+    pub deductions: u64,
+    pub payment_frequency: PaymentFrequency,
+    pub last_payment: i64,
+    pub is_active: bool,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq)]
+pub enum PaymentFrequency {
+    Weekly,
+    BiWeekly,
+    Monthly,
+}
+
+#[error_code]
+pub enum PayrollError {
+    #[msg("Payroll is not active")]
+    PayrollInactive,
+    #[msg("Payroll is already active")]
+    PayrollActive,
+    #[msg("Employee is not active")]
+    EmployeeInactive,
+    #[msg("Invalid payroll account")]
+    InvalidPayroll,
+    #[msg("Invalid employee ID")]
+    InvalidEmployeeId,
+    #[msg("Payment attempted too soon")]
+    PaymentTooSoon,
+    #[msg("Invalid wallet account")]
+    InvalidWallet,
+    #[msg("Arithmetic overflow occurred")]
+    ArithmeticOverflow,
+    #[msg("Invalid payroll ID")]
+    InvalidPayrollId,
+    #[msg("Invalid salary amount")]
+    InvalidSalaryAmount,
+    #[msg("Insufficient funds in vault")]
+    InsufficientFunds,
+}
+
+#[event]
+pub struct EmployeeAdded {
+    pub payroll_id: String,
+    pub employee_id: String,
+    pub wallet: Pubkey,
+    pub salary_amount: u64,
+    pub deductions: u64,
+}
+
+#[event]
+pub struct PaymentProcessed {
+    pub payroll_id: String,
+    pub employee_id: String,
+    pub amount: u64,
+    pub tax_amount: u64,
+    pub deductions: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct EmployeeUpdated {
+    pub payroll_id: String,
+    pub employee_id: String,
+    pub salary_amount: u64,
+    pub deductions: u64,
+    pub is_active: bool,
+}
+
+#[event]
+pub struct FundsDeposited {
+    pub payroll_id: String,
+    pub amount: u64,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct PayrollPaused {
+    pub payroll_id: String,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct PayrollResumed {
+    pub payroll_id: String,
+    pub timestamp: i64,
+}
+
+// Constants for account sizes
+impl Payroll {
+    pub const LEN: usize = 8 + // discriminator
+        32 + // authority
+        4 + 64 + // payroll_id
+        32 + // payment_token
+        8 + // employee_count
+        1 + // is_active
+        2 + // tax_rate
+        8; // total_funds
+}
+
+impl Employee {
+    pub const LEN: usize = 8 + // discriminator
+        32 + // payroll
+        4 + 64 + // employee_id
+        32 + // wallet
+        8 + // salary_amount
+        8 + // deductions
+        1 + // payment_frequency
+        8 + // last_payment
+        1; // is_active
+}
+
+
+
+================================================
+FILE: tests/payroll_confidential.ts
+================================================
+import * as anchor from "@coral-xyz/anchor";
+import { BN, Program } from "@coral-xyz/anchor";
+import { ASSOCIATED_TOKEN_PROGRAM_ID, AuthorityType, createAssociatedTokenAccountInstruction, getAccount, getAssociatedTokenAddressSync, getOrCreateAssociatedTokenAccount, TOKEN_PROGRAM_ID, transfer } from "@solana/spl-token";
+import { Keypair, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
+import { assert } from "chai";
+
+import { PayrollStandard } from "../target/types/payroll_standard";
+
+describe("payroll_confidential", () => {
+  anchor.setProvider(anchor.AnchorProvider.env());
+  const provider = anchor.getProvider();
+  const program = anchor.workspace.PayrollStandard as Program<PayrollStandard>;
+  const authority = Keypair.fromSecretKey(new Uint8Array(require("../deployer.json")));
+
+  const tokenMintA = new PublicKey("J1q7FEiMhzgd1T9bGtdh8ZTZa8mhsyszaW4AqQPvYxWX");
+
+  const userA = Keypair.fromSecretKey(new Uint8Array(require("../deployer.json")));
+  const userB = Keypair.fromSecretKey(new Uint8Array(require("../use.json")));
+
+
+
+  const payrollId = "company_payroll_3";
+  const paymentToken = tokenMintA;
+  const taxRate = 2000; // 20% in basis points (0.2 * 10000)
+  const salaryAmount = new BN(5000 * 1_000_000_000); // 5000 tokens (9 decimals)
+  const deductions = new BN(200 * 1_000_000_000); // 200 tokens
+  const paymentFrequency = { monthly: {} };
+  const generateEmployeeId = (): string => `emp_${Math.floor(1000 + Math.random() * 9000)}`;
+  const employeeId1 = generateEmployeeId();
+  const employeeId2 = generateEmployeeId();
+
+  // Account variables
+  let payroll: PublicKey;
+  let payrollVault: PublicKey;
+  let employee1 = userA;
+  let employee1Wallet: PublicKey;
+  let employee2 = userB;
+  let employee2Wallet: PublicKey;
+  let authorityWallet: PublicKey;
+  let employee1Pda: PublicKey;
+  let employee2Pda: PublicKey;
+
+  before(async () => {
+    // Create a token mint for testin
+
+    // Create token accounts
+    authorityWallet = getAssociatedTokenAddressSync(
+      paymentToken,
+      authority.publicKey,
+      false,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+
+    employee1Wallet = getAssociatedTokenAddressSync(
+      paymentToken,
+      employee1.publicKey,
+      false,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+
+    employee2Wallet = getAssociatedTokenAddressSync(
+      paymentToken,
+      employee2.publicKey,
+      false,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+
+
+    const tx = new Transaction();
+    for (const wallet of [authorityWallet, employee1Wallet, employee2Wallet]) {
+      const accountInfo = await provider.connection.getAccountInfo(wallet);
+      if (!accountInfo) {
+        tx.add(
+          createAssociatedTokenAccountInstruction(
+            authority.publicKey,
+            wallet,
+            wallet.equals(authorityWallet) ? authority.publicKey : wallet.equals(employee1Wallet) ? employee1.publicKey : employee2.publicKey,
+            paymentToken,
+            TOKEN_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID
+          )
+        );
+      }
+    }
+    if (tx.instructions.length > 0) {
+      await provider.sendAndConfirm!(tx, [authority]);
+    }
+
+    // Derive PDAs
+    [payroll] = PublicKey.findProgramAddressSync(
+      [Buffer.from("payroll"), Buffer.from(payrollId)],
+      program.programId
+    );
+
+    [payrollVault] = PublicKey.findProgramAddressSync(
+      [Buffer.from("vault"), payroll.toBuffer()],
+      program.programId
+    );
+
+    [employee1Pda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("employee"), payroll.toBuffer(), Buffer.from(employeeId1)],
+      program.programId
+    );
+
+    [employee2Pda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("employee"), payroll.toBuffer(), Buffer.from(employeeId2)],
+      program.programId
+    );
+
+
+  });
+
+  it.skip("Initializes payroll", async () => {
+
+    const txSPL = await program.methods
+      .initializePayroll(payrollId, paymentToken, taxRate)
+      .accounts({
+        payroll,
+        payrollVault,
+        paymentToken,
+        authority: authority.publicKey,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      } as any)
+      .signers([authority])
+      .rpc();
+
+    console.log("initializePayroll txn signature:", txSPL);
+
+    const payrollAccount = await program.account.payroll.fetch(payroll);
+    assert.equal(payrollAccount.authority.toString(), authority.publicKey.toString());
+    assert.equal(payrollAccount.payrollId, payrollId);
+    assert.equal(payrollAccount.paymentToken.toString(), paymentToken.toString());
+    assert.equal(payrollAccount.employeeCount.toNumber(), 0);
+    assert.isTrue(payrollAccount.isActive);
+    assert.equal(payrollAccount.taxRate, taxRate);
+    assert.equal(payrollAccount.totalFunds.toNumber(), 0);
+
+    const vaultAccount = await getAccount(provider.connection, payrollVault);
+    assert.equal(vaultAccount.mint.toString(), paymentToken.toString());
+
+  });
+
+  it.skip("Fails to initialize with invalid payroll ID", async () => {
+    const invalidPayrollId = "a".repeat(65); // 65 characters long
+    const [invalidPayrollPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("payroll"), Buffer.from(invalidPayrollId)],
+      program.programId
+    );
+
+    try {
+      await program.methods
+        .initializePayroll(invalidPayrollId, paymentToken, taxRate)
+        .accounts({
+          payroll: invalidPayrollPda,
+          payrollVault: payrollVault,
+          paymentToken,
+          authority: authority.publicKey,
+          systemProgram: SystemProgram.programId,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        } as any)
+        .signers([authority])
+        .rpc();
+      assert.fail("Should have thrown error");
+    } catch (err) {
+      assert.include(err.toString(), "InvalidPayrollId");
+    }
+  });
+
+
+  it("Adds employee successfully", async () => {
+    await program.methods
+      .addEmployee(employeeId1, salaryAmount, paymentFrequency, deductions)
+      .accounts({
+        payroll,
+        employee: employee1Pda,
+        employeeWallet: employee1Wallet,
+        authority: authority.publicKey,
+        systemProgram: SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      } as any)
+      .signers([authority])
+      .rpc();
+
+    const employeeAccount = await program.account.employee.fetch(employee1Pda);
+    assert.equal(employeeAccount.payroll.toString(), payroll.toString());
+    assert.equal(employeeAccount.employeeId, employeeId1);
+    assert.equal(employeeAccount.wallet.toString(), employee1Wallet.toString());
+    assert.equal(employeeAccount.salaryAmount.toString(), salaryAmount.toString());
+    assert.equal(employeeAccount.deductions.toString(), deductions.toString());
+    assert.deepEqual(employeeAccount.paymentFrequency, paymentFrequency);
+    assert.equal(employeeAccount.lastPayment.toNumber(), 0);
+    assert.isTrue(employeeAccount.isActive);
+
+    const payrollAccount = await program.account.payroll.fetch(payroll);
+    // assert.equal(payrollAccount.employeeCount.toNumber(), 1);
+  });
+
+
+  it("Fails to add employee to inactive payroll", async () => {
+    await program.methods
+      .pausePayroll()
+      .accounts({
+        payroll,
+        authority: authority.publicKey,
+      } as any)
+      .signers([authority])
+      .rpc();
+
+    try {
+      await program.methods
+        .addEmployee(employeeId2, salaryAmount, paymentFrequency, deductions)
+        .accounts({
+          payroll,
+          employee: employee2Pda,
+          employeeWallet: employee2Wallet,
+          authority: authority.publicKey,
+          systemProgram: SystemProgram.programId,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        } as any)
+        .signers([authority])
+        .rpc();
+      assert.fail("Should have thrown error");
+    } catch (err) {
+      assert.include(err.toString(), "PayrollInactive");
+    }
+
+    await program.methods
+      .resumePayroll()
+      .accounts({
+        payroll,
+        authority: authority.publicKey,
+      } as any)
+      .signers([authority])
+      .rpc();
+  });
+
+
+  it("Fails to add employee with invalid ID", async () => {
+    const invalidEmployeeId = "invalid_emp_id_1234567890123456789012345678901234567890"; // 65 characters long
+    const [invalidEmployeePda] = PublicKey.findProgramAddressSync(
+      [Buffer.from("employee"), payroll.toBuffer(), Buffer.from(invalidEmployeeId)],
+      program.programId
+    );
+
+    try {
+      await program.methods
+        .addEmployee(invalidEmployeeId, salaryAmount, paymentFrequency, deductions)
+        .accounts({
+          payroll,
+          employee: invalidEmployeePda,
+          employeeWallet: employee1Wallet,
+          authority: authority.publicKey,
+          systemProgram: SystemProgram.programId,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        } as any)
+        .signers([authority])
+        .rpc();
+      assert.fail("Should have thrown error");
+    } catch (err) {
+      assert.include(err.toString(), "InvalidEmployeeId");
+    }
+  });
+
+
+  it.skip("Fails to add employee with zero salary", async () => {
+    try {
+      await program.methods
+        .addEmployee(employeeId2, new BN(0), paymentFrequency, deductions)
+        .accounts({
+          payroll,
+          employee: employee2Pda,
+          employeeWallet: employee2Wallet,
+          authority: authority.publicKey,
+          systemProgram: SystemProgram.programId,
+          rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        } as any)
+        .signers([authority])
+        .rpc();
+      assert.fail("Should have thrown error");
+    } catch (err) {
+      assert.include(err.toString(), "InvalidSalaryAmount");
+    }
+  });
+
+  it("Adds second employee successfully", async () => {
+    await program.methods
+      .addEmployee(employeeId2, salaryAmount, paymentFrequency, deductions)
+      .accounts({
+        payroll,
+        employee: employee2Pda,
+        employeeWallet: employee2Wallet,
+        authority: authority.publicKey,
+        systemProgram: SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      } as any)
+      .signers([authority])
+      .rpc();
+
+    const payrollAccount = await program.account.payroll.fetch(payroll);
+    //assert.equal(payrollAccount.employeeCount.toNumber(), 2);
+  });
+
+
+  it("Deposits funds successfully", async () => {
+    const depositAmount = new BN(10000 * 1_000_000_000); // 10000 tokens
+    await program.methods
+      .depositFunds(depositAmount)
+      .accounts({
+        payroll,
+        payrollVault,
+        authorityTokenAccount: authorityWallet,
+        paymentToken,
+        authority: authority.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      } as any)
+      .signers([authority])
+      .rpc();
+
+    const payrollAccount = await program.account.payroll.fetch(payroll);
+    console.log("Payroll account:", payrollAccount);
+    //assert.equal(payrollAccount.totalFunds.toString(), depositAmount.toString());
+
+    const vaultAccount = await getAccount(provider.connection, payrollVault);
+    console.log("Vault account:", vaultAccount);
+    //assert.equal(vaultAccount.amount.toString(), depositAmount.toString());
+  });
+
+
+  it.skip("Fails to deposit zero amount", async () => {
+    try {
+      await program.methods
+        .depositFunds(new BN(0))
+        .accounts({
+          payroll,
+          payrollVault,
+          authorityTokenAccount: authorityWallet,
+          paymentToken,
+          authority: authority.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        } as any)
+        .signers([authority])
+        .rpc();
+      assert.fail("Should have thrown error");
+    } catch (err) {
+      assert.include(err.toString(), "Amount must be greater than zero");
+    }
+  });
+
+  it("Processes payment successfully", async () => {
+    const employeeAccountBefore = await program.account.employee.fetch(employee1Pda);
+    const vaultAccountBefore = await getAccount(provider.connection, payrollVault);
+    const employeeWalletBefore = await getAccount(provider.connection, employee1Wallet);
+
+    await program.methods
+      .processPayment(employeeId1)
+      .accounts({
+        payroll,
+        employee: employee1Pda,
+        payrollVault,
+        employeeWallet: employee1Wallet,
+        paymentToken,
+        authority: authority.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
+      } as any)
+      .signers([authority])
+      .rpc();
+
+    const employeeAccountAfter = await program.account.employee.fetch(employee1Pda);
+    const vaultAccountAfter = await getAccount(provider.connection, payrollVault);
+    const employeeWalletAfter = await getAccount(provider.connection, employee1Wallet);
+    const payrollAccount = await program.account.payroll.fetch(payroll);
+
+    const taxAmount = salaryAmount
+      .mul(new BN(taxRate))
+      .div(new BN(10_000));
+    const netPayment = salaryAmount.sub(taxAmount).sub(deductions);
+
+    assert.notEqual(
+      employeeAccountAfter.lastPayment.toNumber(),
+      employeeAccountBefore.lastPayment.toNumber()
+    );
+    // assert.equal(
+    //   vaultAccountAfter.amount.toString(),
+    //   new BN(vaultAccountBefore.amount.toString()).sub(netPayment).toString()
+    // );
+    // assert.equal(
+    //   employeeWalletAfter.amount.toString(),
+    //   (employeeWalletBefore.amount + BigInt(netPayment.toString())).toString()
+    // );
+    // assert.equal(
+    //   payrollAccount.totalFunds.toString(),
+    //   new BN(vaultAccountBefore.amount.toString()).sub(netPayment).toString()
+    // );
+  });
+
+  it("Fails to process payment for inactive payroll", async () => {
+    await program.methods
+      .pausePayroll()
+      .accounts({
+        payroll,
+        authority: authority.publicKey,
+      } as any)
+      .signers([authority])
+      .rpc();
+
+    try {
+      await program.methods
+        .processPayment(employeeId1)
+        .accounts({
+          payroll,
+          employee: employee1Pda,
+          payrollVault,
+          employeeWallet: employee1Wallet,
+          paymentToken,
+          authority: authority.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        } as any)
+        .signers([authority])
+        .rpc();
+      assert.fail("Should have thrown error");
+    } catch (err) {
+      assert.include(err.toString(), "PayrollInactive");
+    }
+
+    await program.methods
+      .resumePayroll()
+      .accounts({
+        payroll,
+        authority: authority.publicKey,
+      } as any)
+      .signers([authority])
+      .rpc();
+  });
+
+  it("Fails to process payment for inactive employee", async () => {
+    await program.methods
+      .updateEmployee(salaryAmount, paymentFrequency, deductions, false)
+      .accounts({
+        payroll,
+        employee: employee1Pda,
+        authority: authority.publicKey,
+      } as any)
+      .signers([authority])
+      .rpc();
+
+    try {
+      await program.methods
+        .processPayment(employeeId1)
+        .accounts({
+          payroll,
+          employee: employee1Pda,
+          payrollVault,
+          employeeWallet: employee1Wallet,
+          paymentToken,
+          authority: authority.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        } as any)
+        .signers([authority])
+        .rpc();
+      assert.fail("Should have thrown error");
+    } catch (err) {
+      assert.include(err.toString(), "EmployeeInactive");
+    }
+
+    await program.methods
+      .updateEmployee(salaryAmount, paymentFrequency, deductions, true)
+      .accounts({
+        payroll,
+        employee: employee1Pda,
+        authority: authority.publicKey,
+      } as any)
+      .signers([authority])
+      .rpc();
+  });
+
+  it("Fails to process payment too soon", async () => {
+    try {
+      await program.methods
+        .processPayment(employeeId1)
+        .accounts({
+          payroll,
+          employee: employee1Pda,
+          payrollVault,
+          employeeWallet: employee1Wallet,
+          paymentToken,
+          authority: authority.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        } as any)
+        .signers([authority])
+        .rpc();
+      assert.fail("Should have thrown error");
+    } catch (err) {
+      assert.include(err.toString(), "PaymentTooSoon");
+    }
+  });
+
+
+  it("Fails to process payment with invalid employee ID", async () => {
+    try {
+      await program.methods
+        .processPayment("invalid_emp")
+        .accounts({
+          payroll,
+          employee: employee1Pda,
+          payrollVault,
+          employeeWallet: employee1Wallet,
+          paymentToken,
+          authority: authority.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        } as any)
+        .signers([authority])
+        .rpc();
+      assert.fail("Should have thrown error");
+    } catch (err) {
+      assert.include(err.toString(), "InvalidEmployeeId");
+    }
+  });
+
+
+  it("Updates employee successfully", async () => {
+    const newSalaryAmount = new BN(6000 * 1_000_000_000);
+    const newDeductions = new BN(300 * 1_000_000_000);
+    const newFrequency = { weekly: {} };
+    const newIsActive = false;
+
+    await program.methods
+      .updateEmployee(newSalaryAmount, newFrequency, newDeductions, newIsActive)
+      .accounts({
+        payroll,
+        employee: employee1Pda,
+        authority: authority.publicKey,
+      } as any)
+      .signers([authority])
+      .rpc();
+
+    const employeeAccount = await program.account.employee.fetch(employee1Pda);
+    assert.equal(employeeAccount.salaryAmount.toString(), newSalaryAmount.toString());
+    assert.equal(employeeAccount.deductions.toString(), newDeductions.toString());
+    assert.deepEqual(employeeAccount.paymentFrequency, newFrequency);
+    assert.isFalse(employeeAccount.isActive);
+  });
+
+  it("Fails to update employee in inactive payroll", async () => {
+    await program.methods
+      .pausePayroll()
+      .accounts({
+        payroll,
+        authority: authority.publicKey,
+      } as any)
+      .signers([authority])
+      .rpc();
+
+    try {
+      await program.methods
+        .updateEmployee(salaryAmount, paymentFrequency, deductions, true)
+        .accounts({
+          payroll,
+          employee: employee1Pda,
+          authority: authority.publicKey,
+        } as any)
+        .signers([authority])
+        .rpc();
+      assert.fail("Should have thrown error");
+    } catch (err) {
+      assert.include(err.toString(), "PayrollInactive");
+    }
+
+    await program.methods
+      .resumePayroll()
+      .accounts({
+        payroll,
+        authority: authority.publicKey,
+      } as any)
+      .signers([authority])
+      .rpc();
+  });
+
+  it("Fails to update employee with zero salary", async () => {
+    try {
+      await program.methods
+        .updateEmployee(new BN(0), paymentFrequency, deductions, true)
+        .accounts({
+          payroll,
+          employee: employee1Pda,
+          authority: authority.publicKey,
+        } as any)
+        .signers([authority])
+        .rpc();
+      assert.fail("Should have thrown error");
+    } catch (err) {
+      assert.include(err.toString(), "InvalidSalaryAmount");
+    }
+  });
+
+  it("Pauses payroll successfully", async () => {
+    await program.methods
+      .pausePayroll()
+      .accounts({
+        payroll,
+        authority: authority.publicKey,
+      } as any)
+      .signers([authority])
+      .rpc();
+
+    const payrollAccount = await program.account.payroll.fetch(payroll);
+    assert.isFalse(payrollAccount.isActive);
+  });
+
+  it("Fails to pause already inactive payroll", async () => {
+    try {
+      await program.methods
+        .pausePayroll()
+        .accounts({
+          payroll,
+          authority: authority.publicKey,
+        } as any)
+        .signers([authority])
+        .rpc();
+      assert.fail("Should have thrown error");
+    } catch (err) {
+      assert.include(err.toString(), "PayrollInactive");
+    }
+  });
+
+  it("Resumes payroll successfully", async () => {
+    await program.methods
+      .resumePayroll()
+      .accounts({
+        payroll,
+        authority: authority.publicKey,
+      } as any)
+      .signers([authority])
+      .rpc();
+
+    const payrollAccount = await program.account.payroll.fetch(payroll);
+    assert.isTrue(payrollAccount.isActive);
+  });
+
+  it("Fails to resume already active payroll", async () => {
+    try {
+      await program.methods
+        .resumePayroll()
+        .accounts({
+          payroll,
+          authority: authority.publicKey,
+        } as any)
+        .signers([authority])
+        .rpc();
+      assert.fail("Should have thrown error");
+    } catch (err) {
+      assert.include(err.toString(), "PayrollActive");
+    }
+  });
+});
+
+

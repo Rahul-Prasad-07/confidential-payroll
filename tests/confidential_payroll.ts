@@ -201,13 +201,25 @@ describe("ConfidentialPayroll", () => {
     const owner = readKpJson(`${os.homedir()}/.config/solana/id.json`);
 
     console.log("Initializing calculate net pay computation definition");
-    const initSig = await initCalculateNetPayCompDef(
-      program,
-      owner,
-      false,
-      false
-    );
-    console.log("Calculate net pay computation definition initialized with signature", initSig);
+    
+    // Retry init comp def to handle transient blockhash errors
+    let initSig: string | undefined;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        initSig = await initCalculateNetPayCompDef(
+          program,
+          owner,
+          false,
+          false
+        );
+        console.log("Calculate net pay computation definition initialized with signature", initSig);
+        break;
+      } catch (err: any) {
+        console.log(`Init comp def attempt ${attempt} failed:`, err.message || err);
+        if (attempt === 3) throw err;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
 
     const mxePublicKey = await getMXEPublicKeyWithRetry(
       provider as anchor.AnchorProvider,
@@ -233,39 +245,62 @@ describe("ConfidentialPayroll", () => {
     const netPayEventPromise = awaitEvent("netPayCalculated");
     const computationOffset = new anchor.BN(randomBytes(8), "hex");
 
-    const queueSig = await program.methods
-      .calculateNetPay(
-        computationOffset,
-        Array.from(ciphertext[0]),
-        Array.from(ciphertext[1]),
-        Array.from(ciphertext[2]),
-        Array.from(publicKey),
-        new anchor.BN(deserializeLE(nonce).toString())
-      )
-      .accountsPartial({
-        computationAccount: getComputationAccAddress(
-          program.programId,
-          computationOffset
-        ),
-        clusterAccount: arciumEnv.arciumClusterPubkey,
-        mxeAccount: getMXEAccAddress(program.programId),
-        mempoolAccount: getMempoolAccAddress(program.programId),
-        executingPool: getExecutingPoolAccAddress(program.programId),
-        compDefAccount: getCompDefAccAddress(
-          program.programId,
-          Buffer.from(getCompDefAccOffset("calculate_net_pay")).readUInt32LE()
-        ),
-      })
-      .rpc({ skipPreflight: true, commitment: "confirmed" });
-    console.log("Queue sig is ", queueSig);
+    // send queue transaction with retries to avoid transient 'Blockhash not found' errors
+    let queueSig: string | undefined;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        queueSig = await program.methods
+          .calculateNetPay(
+            computationOffset,
+            Array.from(ciphertext[0]),
+            Array.from(ciphertext[1]),
+            Array.from(ciphertext[2]),
+            Array.from(publicKey),
+            new anchor.BN(deserializeLE(nonce).toString())
+          )
+          .accountsPartial({
+            computationAccount: getComputationAccAddress(
+              program.programId,
+              computationOffset
+            ),
+            clusterAccount: arciumEnv.arciumClusterPubkey,
+            mxeAccount: getMXEAccAddress(program.programId),
+            mempoolAccount: getMempoolAccAddress(program.programId),
+            executingPool: getExecutingPoolAccAddress(program.programId),
+            compDefAccount: getCompDefAccAddress(
+              program.programId,
+              Buffer.from(getCompDefAccOffset("calculate_net_pay")).readUInt32LE()
+            ),
+          })
+          .rpc({ skipPreflight: true, commitment: "confirmed" });
 
-    const finalizeSig = await awaitComputationFinalization(
-      provider as anchor.AnchorProvider,
-      computationOffset,
-      program.programId,
-      "confirmed"
-    );
-    console.log("Finalize sig is ", finalizeSig);
+        console.log("Queue sig is ", queueSig);
+        break;
+      } catch (err: any) {
+        console.log(`Queue attempt ${attempt} failed:`, err.message || err);
+        if (attempt === 3) throw err;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
+
+    // wait for computation finalization with retries (transient RPC errors can happen)
+    let finalizeSig: string | undefined;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        finalizeSig = await awaitComputationFinalization(
+          provider as anchor.AnchorProvider,
+          computationOffset,
+          program.programId,
+          "confirmed"
+        );
+        console.log("Finalize sig is ", finalizeSig);
+        break;
+      } catch (err: any) {
+        console.log(`Finalize attempt ${attempt} failed:`, err.message || err);
+        if (attempt === 3) throw err;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
 
     const netPayEvent = await netPayEventPromise;
     const decrypted = cipher.decrypt([netPayEvent.netPay], netPayEvent.nonce)[0];
@@ -291,18 +326,33 @@ describe("ConfidentialPayroll", () => {
 
     console.log("Comp def pda is ", compDefPDA);
 
-    const sig = await program.methods
-      .initCalculateNetPayCompDef()
-      .accounts({
-        compDefAccount: compDefPDA,
-        payer: owner.publicKey,
-        mxeAccount: getMXEAccAddress(program.programId),
-      })
-      .signers([owner])
-      .rpc({
-        commitment: "confirmed",
-      });
-    console.log("Init calculate net pay computation definition transaction", sig);
+    // Retry the init transaction with fresh blockhash
+    let sig: string | undefined;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        sig = await program.methods
+          .initCalculateNetPayCompDef()
+          .accounts({
+            compDefAccount: compDefPDA,
+            payer: owner.publicKey,
+            mxeAccount: getMXEAccAddress(program.programId),
+          })
+          .signers([owner])
+          .rpc({
+            commitment: "confirmed",
+          });
+        console.log("Init calculate net pay computation definition transaction", sig);
+        break;
+      } catch (err: any) {
+        console.log(`Init tx attempt ${attempt} failed:`, err.message || err);
+        if (attempt === 3) throw err;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+
+    if (!sig) {
+      throw new Error("Failed to initialize computation definition after retries");
+    }
 
     if (uploadRawCircuit) {
       const rawCircuit = fs.readFileSync("build/calculate_net_pay.arcis");
